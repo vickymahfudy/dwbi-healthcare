@@ -65,10 +65,10 @@ docker-compose run --rm webserver airflow users create \
 
 Setelah seluruh container berstatus **healthy**, buka browser dan akses layanan berikut:
 
-| Layanan | URL | Kredensial |
-|---|---|---|
-| Apache Airflow Dashboard | http://localhost:8080 | admin / admin |
-| pgAdmin 4 | http://localhost:5050 | admin@hospital.com / admin |
+| Layanan                  | URL                   | Kredensial                 |
+| ------------------------ | --------------------- | -------------------------- |
+| Apache Airflow Dashboard | http://localhost:8080 | admin / admin              |
+| pgAdmin 4                | http://localhost:5050 | admin@hospital.com / admin |
 
 ---
 
@@ -104,13 +104,13 @@ Digunakan oleh:
 - pgAdmin
 - Container internal lainnya
 
-| Parameter | Value |
-|---|---|
-| Host | postgres |
-| Port | 5432 |
-| Database | airflow |
-| Username | airflow |
-| Password | airflow |
+| Parameter | Value    |
+| --------- | -------- |
+| Host      | postgres |
+| Port      | 5432     |
+| Database  | airflow  |
+| Username  | airflow  |
+| Password  | airflow  |
 
 ---
 
@@ -121,13 +121,13 @@ Digunakan oleh:
 - Jupyter Notebook lokal
 - Python lokal
 
-| Parameter | Value |
-|---|---|
-| Host | localhost |
-| Port | 5430 |
-| Database | airflow |
-| Username | airflow |
-| Password | airflow |
+| Parameter | Value     |
+| --------- | --------- |
+| Host      | localhost |
+| Port      | 5430      |
+| Database  | airflow   |
+| Username  | airflow   |
+| Password  | airflow   |
 
 ---
 
@@ -139,12 +139,7 @@ Setelah Airflow berhasil memuat 10.000 baris data ke PostgreSQL, Anda dapat mula
 
 ## 1. Install Library Python
 
-Jalankan perintah berikut:
-
-```bash
-pip install pandas sqlalchemy psycopg2-binary notebook matplotlib seaborn
-```
-
+Pastikan terlebih dahulu sudah masuk ke dalam mode venv, dapat dilihat petunjuknya pada ([../README.md](README.md)) di folder proyek utama.
 ---
 
 ## 2. Jalankan Jupyter Notebook
