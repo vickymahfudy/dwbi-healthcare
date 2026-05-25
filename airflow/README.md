@@ -24,6 +24,11 @@ Sebelum menjalankan proyek, pastikan laptop Anda telah menginstal:
 - Docker Desktop (Docker Engine & Docker Compose)
 - Python 3.10+
 - Jupyter Notebook
+- Lakukan penginstalan modul ``faker pandas sqlalchemy psycopg2 psycopg2-binary`` secara global untuk python (jalankan di luar mode venv) dengan cara:
+
+  ``` cmd\bash
+  pip install faker pandas sqlalchemy psycopg2 psycopg2-binary
+  ```
 
 ---
 
