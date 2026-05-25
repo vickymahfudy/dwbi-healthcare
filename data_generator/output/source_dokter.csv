@@ -1,0 +1,81 @@
+id_dokter,nama_dokter,spesialisasi,biaya_konsultasi,nomor_izin_praktek
+DKT-001,"Baktianto Kuswandari, S.H.",Anak,40000,STR-394083
+DKT-002,"dr. Malika Sudiati, S.E.I",Mata,45000,STR-132687
+DKT-003,Tasnim Maheswara,Penyakit Dalam,50000,STR-493468
+DKT-004,Diana Sirait,Saraf,70000,STR-660226
+DKT-005,Hartana Rahmawati,Mata,45000,STR-274031
+DKT-006,Drs. Dacin Uwais,Jantung,80000,STR-735111
+DKT-007,"T. Hartana Sihombing, S.Sos",Bedah,60000,STR-296481
+DKT-008,Reza Rahayu,Jantung,80000,STR-222520
+DKT-009,H. Lembah Hassanah,Mata,45000,STR-920347
+DKT-010,Baktiono Sihombing,Mata,45000,STR-423256
+DKT-011,"Lutfan Yuliarti, S.Psi",Saraf,70000,STR-999488
+DKT-012,Nova Ardianto,Penyakit Dalam,50000,STR-844321
+DKT-013,"R.A. Rahayu Prakasa, S.T.",Umum,30000,STR-384685
+DKT-014,"Cahyadi Kusmawati, S.IP",Bedah,60000,STR-191014
+DKT-015,"Puput Widodo, S.Sos",Bedah,60000,STR-349185
+DKT-016,"Restu Maryadi, S.I.Kom",Penyakit Dalam,50000,STR-573858
+DKT-017,Dian Suartini,Mata,45000,STR-417329
+DKT-018,"Hj. Amelia Sitompul, S.Ked",Anak,40000,STR-650607
+DKT-019,R. Kayla Habibi,Penyakit Dalam,50000,STR-283514
+DKT-020,Asirwada Widiastuti,Umum,30000,STR-492393
+DKT-021,Purwanto Kusumo,Mata,45000,STR-139211
+DKT-022,"Prasetya Hakim, S.Pt",Mata,45000,STR-311915
+DKT-023,"dr. Lintang Hidayanto, S.Farm",Umum,30000,STR-565330
+DKT-024,Slamet Padmasari,Jantung,80000,STR-126146
+DKT-025,Febi Purwanti,Mata,45000,STR-606109
+DKT-026,Winda Ramadan,Jantung,80000,STR-261562
+DKT-027,"H. Leo Utami, M.TI.",Anak,40000,STR-456637
+DKT-028,Cahyono Irawan,Bedah,60000,STR-868020
+DKT-029,"R.A. Ade Hardiansyah, M.Pd",Mata,45000,STR-649063
+DKT-030,R.M. Marwata Nababan,Penyakit Dalam,50000,STR-913205
+DKT-031,T. Mulya Waluyo,Penyakit Dalam,50000,STR-250255
+DKT-032,"Ir. Sarah Habibi, M.Pd",Mata,45000,STR-203024
+DKT-033,"drg. Natalia Mahendra, S.Kom",Mata,45000,STR-641218
+DKT-034,"Wardi Pratama, S.Pt",Saraf,70000,STR-239164
+DKT-035,Eman Widiastuti,Anak,40000,STR-859767
+DKT-036,Paris Maheswara,Umum,30000,STR-581682
+DKT-037,Shania Hastuti,Bedah,60000,STR-848344
+DKT-038,"Dipa Utami, S.Farm",Mata,45000,STR-647718
+DKT-039,"dr. Jamalia Andriani, S.Pt",Umum,30000,STR-104309
+DKT-040,R. Dian Hidayanto,Penyakit Dalam,50000,STR-146168
+DKT-041,"Dr. Kuncara Mansur, S.E.I",Saraf,70000,STR-989322
+DKT-042,Hendra Prabowo,Jantung,80000,STR-191305
+DKT-043,"R. Karsa Widodo, S.Pd",Penyakit Dalam,50000,STR-589554
+DKT-044,Jaya Winarno,Umum,30000,STR-208111
+DKT-045,Makuta Usamah,Jantung,80000,STR-903398
+DKT-046,"Nasim Prasetyo, S.Ked",Saraf,70000,STR-881770
+DKT-047,Dadap Zulkarnain,Penyakit Dalam,50000,STR-123572
+DKT-048,Vanesa Latupono,Jantung,80000,STR-895338
+DKT-049,"Sari Fujiati, M.Ak",Penyakit Dalam,50000,STR-769883
+DKT-050,Indra Mayasari,Anak,40000,STR-436467
+DKT-051,Galiono Utami,Anak,40000,STR-301898
+DKT-052,Ir. Bella Zulkarnain,Penyakit Dalam,50000,STR-390088
+DKT-053,"Dr. Maya Saefullah, S.Ked",Jantung,80000,STR-434652
+DKT-054,"R.A. Dalima Prasetyo, M.Farm",Mata,45000,STR-562543
+DKT-055,"Bagas Pertiwi, S.H.",Saraf,70000,STR-223365
+DKT-056,"Cemani Siregar, S.E.I",Penyakit Dalam,50000,STR-256574
+DKT-057,"Dr. Cakrawala Usada, S.Sos",Anak,40000,STR-386929
+DKT-058,"drg. Viktor Jailani, S.E.",Umum,30000,STR-115997
+DKT-059,Rahmi Permadi,Jantung,80000,STR-686810
+DKT-060,Restu Rajata,Jantung,80000,STR-207348
+DKT-061,Ir. Qori Sinaga,Anak,40000,STR-668882
+DKT-062,"R. Fitria Sihotang, S.E.",Penyakit Dalam,50000,STR-676051
+DKT-063,drg. Vanya Rajasa,Penyakit Dalam,50000,STR-384218
+DKT-064,Ilsa Nurdiyanti,Anak,40000,STR-838568
+DKT-065,Vanya Prayoga,Mata,45000,STR-397027
+DKT-066,"H. Lasmono Aryani, M.Pd",Jantung,80000,STR-356717
+DKT-067,Ophelia Kusumo,Anak,40000,STR-174703
+DKT-068,"Puti Citra Saragih, S.H.",Penyakit Dalam,50000,STR-743052
+DKT-069,Arsipatra Aryani,Penyakit Dalam,50000,STR-666836
+DKT-070,Aisyah Suartini,Bedah,60000,STR-153190
+DKT-071,"Putri Dongoran, S.Psi",Anak,40000,STR-130401
+DKT-072,drg. Jatmiko Hutasoit,Bedah,60000,STR-808308
+DKT-073,"dr. Jamalia Tampubolon, M.Ak",Umum,30000,STR-211072
+DKT-074,"Maryanto Hakim, S.Sos",Bedah,60000,STR-156413
+DKT-075,"Eli Laksmiwati, M.TI.",Umum,30000,STR-547181
+DKT-076,Rahmi Habibi,Bedah,60000,STR-287677
+DKT-077,Virman Tamba,Saraf,70000,STR-725078
+DKT-078,Puti Shakila Maryadi,Jantung,80000,STR-760047
+DKT-079,Nasab Santoso,Mata,45000,STR-823648
+DKT-080,Gilda Hastuti,Saraf,70000,STR-567493
