@@ -1,5 +1,0 @@
-faker
-pandas
-sqlalchemy
-psycopg2-binary
-dbt-postgres
