@@ -1,14 +1,20 @@
+# ============================================
 # macOS
+# ============================================
 .DS_Store
 .AppleDouble
 .LSOverride
 ._*
 /docs/_MACOSX
 
+# ============================================
 # Documentation
+# ============================================
 /docs/Laporan Mahasiswa DWIB
 
+# ============================================
 # Python
+# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -26,29 +32,53 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
-*.log
 
 # Virtual Environment
 venv/
 env/
 ENV/
 .venv
+env.bak/
+venv.bak/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-*.ipynb
+*.ipynb_checkpoints/
 
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# ============================================
+# Logs
+# ============================================
+*.log
+logs/
+*.log.*
+
+# ============================================
 # Environment variables
+# ============================================
 .env
 .env.local
 .env.*.local
 *.env
+!.env.example
 
+# ============================================
 # Airflow
+# ============================================
 airflow/logs/
 airflow/plugins/__pycache__/
 airflow/dags/__pycache__/
@@ -59,8 +89,12 @@ airflow/airflow.db-shm
 airflow/airflow.db-wal
 airflow/webserver_config.py
 airflow/standalone_admin_password.txt
+airflow/airflow-webserver.pid
+airflow/unittests.cfg
 
+# ============================================
 # dbt
+# ============================================
 dbt_project/target/
 dbt_project/dbt_packages/
 dbt_project/logs/
@@ -68,36 +102,105 @@ dbt_project/dbt_modules/
 dbt_project/.user.yml
 dbt_project/profiles.yml
 
+# ============================================
 # Database
+# ============================================
 *.db
 *.sqlite
 *.sqlite3
 *.db-shm
 *.db-wal
 
-# IDE
+# ============================================
+# IDE & Editors
+# ============================================
+# VSCode
 .vscode/
+*.code-workspace
+
+# IntelliJ IDEA
 .idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim
 *.swp
 *.swo
 *~
+.netrwhist
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Eclipse
 .project
 .classpath
 .settings/
+.metadata
 
-# Data files (optional - uncomment if you don't want to track data)
+# ============================================
+# Data files (uncomment if needed)
+# ============================================
 # *.csv
 # *.parquet
 # *.json
+# *.xlsx
+# *.xls
 # data/
 # data_generator/output/
+# data_generator/*.csv
 
+# ============================================
 # Credentials and secrets
+# ============================================
 credentials.json
 secrets.yaml
+secrets.yml
 *.pem
 *.key
+*.crt
+*.p12
+*.pfx
+service-account*.json
 
+# ============================================
 # OS generated files
+# ============================================
+# Windows
 Thumbs.db
 Desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================
+# Testing
+# ============================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ============================================
+# Docker
+# ============================================
+# docker-compose.override.yml
+
+# ============================================
+# Temporary files
+# ============================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
