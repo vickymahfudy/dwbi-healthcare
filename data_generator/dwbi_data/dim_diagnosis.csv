@@ -1,0 +1,9 @@
+icd10_code,diagnosis_name,category
+E11,Type 2 Diabetes,DIABETES
+I10,Essential Hypertension,HYPERTENSION
+J45,Asthma,ASTHMA
+I20,Angina Pectoris,MI_CAD
+F32,Major Depressive Disorder,DEPRESSION
+N18,Chronic Kidney Disease,CHRONIC_KIDNEY
+K27,Peptic Ulcer,PEPTIC_ULCER
+Z00,General Medical Examination,GENERAL_CHECKUP
