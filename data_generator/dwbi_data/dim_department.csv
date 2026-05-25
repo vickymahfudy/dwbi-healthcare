@@ -1,0 +1,6 @@
+dept_id,dept_name
+D01,Emergency Room
+D02,Outpatient Clinic
+D03,Inpatient Ward
+D04,Intensive Care Unit (ICU)
+D05,Surgery Room
