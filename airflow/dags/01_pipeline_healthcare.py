@@ -13,12 +13,9 @@ default_args = {
     'retry_delay': timedelta(minutes=2),
 }
 
-# Fungsi Python untuk membaca CSV dan memasukkannya ke PostgreSQL
 def ingest_csv_to_postgres():
-    # URI Koneksi ke Postgres bawaan Airflow Docker
     DATABASE_URI = 'postgresql+psycopg2://airflow:airflow@postgres:5432/airflow'
     engine = create_engine(DATABASE_URI)
-    
     CSV_DIR = '/opt/airflow/data_generator/output'
     
     files_to_ingest = {
@@ -27,42 +24,45 @@ def ingest_csv_to_postgres():
         'source_kunjungan.csv': 'src_kunjungan'
     }
     
-    print("⏳ Memulai proses Ingestion ke PostgreSQL Staging...")
-    
     for file_name, table_name in files_to_ingest.items():
         file_path = os.path.join(CSV_DIR, file_name)
-        
         if os.path.exists(file_path):
-            print(f"Mengunduh {file_name} ke tabel {table_name}...")
             df = pd.read_csv(file_path)
-            
-            # Perbaikan di argumen 'con'
             df.to_sql(table_name, con=engine, if_exists='replace', index=False, schema='public')
-            print(f"✅ Berhasil memuat {len(df)} baris ke tabel {table_name}.")
-        else:
-            raise FileNotFoundError(f"File {file_name} tidak ditemukan di {CSV_DIR}!")
 
-# Inisialisasi DAG
 with DAG(
-    '01_healthcare_data_pipeline',
+    '02_healthcare_data_pipeline',
     default_args=default_args,
-    description='Pipeline ETL utama untuk Data Mart Rumah Sakit',
+    description='Pipeline ETL + dbt Otomatis Beruntun',
     schedule_interval=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
 ) as dag:
 
-    # Task 1: Menjalankan skrip Python generator data sintetik
+    # Langkah 1: Generate Data Palsu (DE)
     task_generate_data = BashOperator(
         task_id='run_data_generator',
         bash_command='python /opt/airflow/data_generator/src/generator.py',
     )
 
-    # Task 2: Menjalankan fungsi Ingestion menggunakan PythonOperator
+    # Langkah 2: Ingest CSV ke Postgres (DE)
     task_ingest_data = PythonOperator(
         task_id='ingest_csv_to_database',
         python_callable=ingest_csv_to_postgres,
     )
 
-    # Mengatur urutan alur data: Buat data dulu -> baru masukkan ke DB
-    task_generate_data >> task_ingest_data
+    # Langkah 3: dbt Run - Mengeksekusi semua file SQL transformasi di folder staging/marts (Analytics Engineer)
+    task_dbt_run = BashOperator(
+        task_id='dbt_run_transformation',
+        bash_command='cd /opt/airflow/dbt_project && dbt run --target docker_env --profiles-dir .',
+    )
+
+    # Langkah 4: dbt Test - Memvalidasi kualitas data mart (Data Quality Analyst)
+    # Ini akan menguji data, misalnya: memastikan ID tidak ada yang null atau duplikat.
+    task_dbt_test = BashOperator(
+        task_id='dbt_data_quality_test',
+        bash_command='cd /opt/airflow/dbt_project && dbt test --target docker_env --profiles-dir .',
+    )
+
+    # Menghubungkan semua task agar berjalan berurutan sekali trigger
+    task_generate_data >> task_ingest_data >> task_dbt_run >> task_dbt_test
