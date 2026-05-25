@@ -61,10 +61,12 @@ dwbi-healthcare/
 
 1. Masuk ke dalam folder proyek utama.
 2. Mempersiapkan virtual environment (venv) untuk lingkungan kerja dengan menjalankan perintah berikut:
+
    ```cmd\bash
    python -m venv .venv
    ```
 3. mengaktifkan venv dengan perintah berikut:
+
    ```cmd\bash
    Windows:
    .\.venv\Scripts\activate
@@ -77,6 +79,7 @@ dwbi-healthcare/
    source venv/bin/activate.fish
    ```
 4. Setelah itu jalankan perintah berikut untuk melalkukan instalasi modul-modul python yang akan digunakan :
+
    ```cmd\bash
    pip install -r ./requirements.txt
    ```
