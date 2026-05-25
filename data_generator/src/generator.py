@@ -122,14 +122,15 @@ for kunjungan_id in range(1, TOTAL_TRANSAKSI_KUNJUNGAN + 1):
 df_kunjungan = pd.DataFrame(data_kunjungan)
 
 # ==========================================
-# 4. MENYIMPAN DATA KE CSV (Bisa diubah ke SQL Insert)
+# 4. MENYIMPAN DATA KE CSV
 # ==========================================
-# Pastikan folder output ada
-os.makedirs('data_generator/output', exist_ok=True)
+# Gunakan path absolut yang mengarah ke folder share Docker
+OUTPUT_DIR = '/opt/airflow/data_generator/output'
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-df_pasien.to_csv('data_generator/output/source_pasien.csv', index=False)
-df_dokter.to_csv('data_generator/output/source_dokter.csv', index=False)
-df_kunjungan.to_csv('data_generator/output/source_kunjungan.csv', index=False)
+df_pasien.to_csv(os.path.join(OUTPUT_DIR, 'source_pasien.csv'), index=False)
+df_dokter.to_csv(os.path.join(OUTPUT_DIR, 'source_dokter.csv'), index=False)
+df_kunjungan.to_csv(os.path.join(OUTPUT_DIR, 'source_kunjungan.csv'), index=False)
 
 print("✅ Pembuatan dataset selesai!")
 print(f"   - Total Pasien   : {len(df_pasien)} baris")
