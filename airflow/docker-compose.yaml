@@ -49,8 +49,8 @@ x-airflow-common:
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.2}
-  # build: .
+  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.2}
+  build: .
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -87,15 +87,15 @@ x-airflow-common:
       condition: service_healthy
 
 services:
-  metabase:
-    image: metabase/metabase:v0.49.3 
-    container_name: metabase_healthcare
-    ports:
-      - "3000:3000" 
-    environment:
-      - MB_JETTY_HOST=0.0.0.0
-      - MB_JETTY_PORT=3000
-    restart: always
+  # metabase:
+  #   image: metabase/metabase:v0.49.3 
+  #   container_name: metabase_healthcare
+  #   ports:
+  #     - "3000:3000" 
+  #   environment:
+  #     - MB_JETTY_HOST=0.0.0.0
+  #     - MB_JETTY_PORT=3000
+  #   restart: always
   postgres:
     image: postgres:13
     environment:
