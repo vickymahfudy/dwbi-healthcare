@@ -144,7 +144,7 @@ Setelah Airflow berhasil memuat 10.000 baris data ke PostgreSQL, Anda dapat mula
 
 ## 1. Install Library Python
 
-Pastikan terlebih dahulu sudah masuk ke dalam mode venv, dapat dilihat petunjuknya pada ([../README.md]()) di folder proyek utama.
+Pastikan terlebih dahulu sudah masuk ke dalam mode venv, dapat dilihat petunjuknya pada ([https://github.com/vickymahfudy/dwbi-healthcare/blob/main/README.md](README.md)) di folder proyek utama.
 ---
 
 ## 2. Jalankan Jupyter Notebook
