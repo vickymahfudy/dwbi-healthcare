@@ -1,4 +1,4 @@
-\chapter{Studi Kasus dan Pembahasan}
+\chapter{Perancangan Dimensional Modeling}
 
 \begin{mybox}{Anggota kelompok}
 	\begin{enumerate}
@@ -14,9 +14,9 @@
 %  BAB III: PERANCANGAN DIMENSIONAL MODELING
 % ============================================================
  
-\section{Perancangan Dimensional Modeling}
+% \section{Perancangan Dimensional Modeling}
  
-\subsection{Penentuan Grain}
+\section{Penentuan Grain}
  
 \textit{Grain} mendefinisikan tingkat granularitas data yang akan disimpan dalam \textit{fact table}. Penentuan \textit{grain} yang tepat adalah langkah paling fundamental dalam perancangan \textit{dimensional model} karena menentukan semua hal lain dalam desain, mulai dari \textit{measures} yang bisa dihitung hingga dimensi yang diperlukan.
  
@@ -39,7 +39,7 @@ Implikasi              & Satu pasien dapat memiliki lebih dari satu baris jika m
  
 Pemilihan \textit{grain} pada tingkat transaksi prosedur medis per pasien per tanggal memungkinkan fleksibilitas analisis dari level paling rinci (per prosedur) hingga level agregat (per pasien, per bulan, per kategori prosedur). \textit{Grain} ini juga memungkinkan satu pasien memiliki beberapa baris dalam \textit{fact table} jika menjalani lebih dari satu prosedur medis.
  
-\subsection{Rancangan Fact Table}
+\section{Rancangan Fact Table}
  
 \subsubsection{Nama dan Jenis Fact Table}
  
@@ -86,7 +86,7 @@ M22 & \texttt{idx\_copay}                & Additive      & DECIMAL & Co-payment 
 \end{tabularx}
 \end{table}
  
-\subsection{Rancangan Dimension Table}
+\section{Rancangan Dimension Table}
  
 \subsubsection{Daftar Dimension Table dan Jenis SCD}
  
@@ -133,7 +133,7 @@ Berdasarkan karakteristik setiap atribut dalam dataset, berikut adalah rancangan
  
 \texttt{Dim\_Prosedur} memuat 5 kode prosedur unik (CPT-80053, CPT-70450, CPT-71045, CPT-93000, ICD10-0DTJ) dengan deskripsi dan kategorinya. Menggunakan SCD Tipe 1 karena perubahan deskripsi prosedur cukup ditimpa langsung tanpa perlu histori.
  
-\subsection{Star Schema Diagram}
+\section{Star Schema Diagram}
  
 Berdasarkan rancangan \textit{fact table} dan \textit{dimension table} di atas, skema dimensional yang digunakan adalah \textbf{Star Schema}, yaitu satu \textit{fact table} pusat yang terhubung langsung dengan enam \textit{dimension table}. Pemilihan \textit{Star Schema} dibanding \textit{Snowflake Schema} didasarkan pada pertimbangan kemudahan \textit{query}, performa analitik, dan kesesuaian dengan \textit{tools} Business Intelligence yang umum digunakan.
  
