@@ -1,0 +1,143 @@
+\chapter{Analisis Kebutuhan Bisnis}
+\begin{mybox}{Anggota kelompok}
+\begin{enumerate}
+    \itemsep0em
+	\item Engelbertus Rande (NIM 25/573149/PPA/07211)
+	\item Gilbert Fandiliam Mooy (NIM 25/574767/PPA/07259)
+	\item Sinta Siti Nuriah (NIM 25/575177/PPA/07274)
+	\item Vicky Mahfudy (NIM 25/573019/PPA/07207)
+\end{enumerate}
+\end{mybox}
+
+% ============================================================
+%  BAB II: ANALISIS KEBUTUHAN BISNIS
+% ============================================================
+ 
+\section{Business Questions}
+ 
+\textit{Business questions} merupakan pertanyaan-pertanyaan bisnis kritis yang diformulasikan berdasarkan kebutuhan analitik \textit{stakeholder} manajemen rumah sakit serta karakteristik aktual dari struktur dataset operasional. Dua belas \textit{business questions} berikut ditetapkan sebagai panduan utama dalam perancangan sistem DWBI, yang mencakup enam domain analitik utama: utilisasi fasilitas, kinerja tenaga medis, analisis finansial/penagihan, efisiensi klinis, metode pembayaran, dan demografi pasien.
+ 
+\begin{table}[H]
+\centering
+\caption{Business Questions Sistem DWBI Operasional Rumah Sakit}
+\small
+\begin{tabularx}{\linewidth}{cp{5.5cm}p{2.5cm}X}
+\toprule
+\textbf{No} & \textbf{Business Question} & \textbf{Kategori} & \textbf{KPI / Metrik} \\
+\midrule
+1  & Berapa total pendapatan rumah sakit dan bagaimana distribusinya berdasarkan tipe fasilitas (IGD, Rawat Jalan, Rawat Inap)?
+   & Finansial
+   & \texttt{total\_biaya}, \texttt{tipe\_fasilitas} \\[3pt]
+2  & Spesialisasi dokter manakah yang menghasilkan volume transaksi kunjungan tertinggi dan total biaya penagihan terbesar?
+   & Kinerja Dokter
+   & \texttt{Count(id\_kunjungan)}, \texttt{Sum(total\_biaya)} per spesialisasi \\[3pt]
+3  & Bagaimana distribusi penggunaan metode pembayaran (BPJS, Asuransi Swasta, Mandiri) terhadap total biaya pelayanan?
+   & Finansial \& Payer
+   & Persentase akumulasi \texttt{total\_biaya} per \texttt{metode\_pembayaran} \\[3pt]
+4  & Berapa rata-rata lama rawat inap (\textit{Length of Stay}) pasien dan bagaimana pengaruhnya terhadap biaya kamar serta total biaya transaksi?
+   & Efisiensi Klinis
+   & Rata-rata \texttt{lama\_rawat\_hari}, \texttt{biaya\_kamar}, \texttt{total\_biaya} \\[3pt]
+5  & Bagaimana tren bulanan jumlah kunjungan pasien di rumah sakit sepanjang periode tahun 2025 hingga awal 2026?
+   & Tren Kunjungan
+   & \texttt{Count(id\_kunjungan)} berdasarkan tren \texttt{tanggal\_kunjungan} \\[3pt]
+6  & Bagaimana proporsi status keluar pasien (Sembuh, Dirujuk, Pulang Paksa, Meninggal) khusus pada tipe fasilitas Rawat Inap?
+   & Mutu Pelayanan
+   & Rasio \texttt{status\_keluar} where \texttt{tipe\_fasilitas = 'Rawat Inap'} \\[3pt]
+7  & Bagaimana rincian kontribusi masing-masing komponen biaya (konsultasi, obat, tindakan, kamar) terhadap struktur total penagihan?
+   & Analisis Biaya
+   & Breakdown rata-rata \texttt{biaya\_konsultasi}, \texttt{biaya\_obat}, \texttt{biaya\_tindakan}, \texttt{biaya\_kamar} \\[3pt]
+8  & Kota asal pasien manakah yang memiliki beban pemanfaatan layanan dan frekuensi kunjungan tertinggi di rumah sakit?
+   & Geografi
+   & \texttt{Count(id\_kunjungan)}, \texttt{Sum(total\_biaya)} per \texttt{kota} \\[3pt]
+9  & Bagaimana profil distribusi kunjungan pasien jika dikelompokkan berdasarkan variabel jenis kelamin dan golongan darah?
+   & Demografi
+   & \textit{Cross-tabulation} \texttt{Count(id\_kunjungan)} per \texttt{jenis\_kelamin} dan \texttt{golongan\_darah} \\[3pt]
+10 & Berapa rata-rata biaya obat yang dikeluarkan oleh pasien pada fasilitas IGD dibandingkan dengan fasilitas Rawat Jalan?
+   & Farmasi \& Biaya
+   & Rata-rata \texttt{biaya\_obat} per \texttt{tipe\_fasilitas} (IGD vs Rawat Jalan) \\[3pt]
+11 & Siapakah 5 dokter teratas (\textit{Top 5 Doctors}) yang memiliki kontribusi pelayanan transaksi kunjungan paling aktif di rumah sakit?
+   & Kinerja Dokter
+   & Ranking 5 teratas \texttt{nama\_dokter} berdasarkan \texttt{Count(id\_kunjungan)} \\[3pt]
+12 & Berapa rata-rata pengeluaran total biaya per satu kali transaksi kunjungan pasien (\textit{average ticket size}) di rumah sakit?
+   & Finansial
+   & Rata-rata \texttt{total\_biaya} dari seluruh baris transaksi \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+\textit{Business questions} di atas dirancang agar dapat dijawab secara multidimensional melalui pembuatan tabel fakta transaksi (\texttt{Fact\_Kunjungan}) yang akan terhubung dengan tabel-tabel dimensi pendukung seperti Dimensi Pasien, Dimensi Dokter, Dimensi Waktu, dan Dimensi Fasilitas pada arsitektur pemodelan data.
+ 
+\section{Stakeholder}
+ 
+Identifikasi \textit{stakeholder} diperlukan untuk memastikan sistem DWBI yang dibangun mampu menyajikan informasi yang relevan, akurat, dan sesuai dengan wewenang masing-masing pengguna di rumah sakit. Berdasarkan arsitektur data operasional yang tersedia, terdapat tujuh kelompok \textit{stakeholder} utama:
+ 
+\begin{table}[H]
+\centering
+\caption{Daftar Stakeholder dan Kebutuhan Informasi}
+\small
+\begin{tabularx}{\linewidth}{p{3.8cm}p{3cm}X}
+\toprule
+\textbf{Stakeholder} & \textbf{Peran} & \textbf{Kebutuhan Informasi} \\
+\midrule
+Direktur / Manajemen RS
+  & Decision Maker (Eksekutif)
+  & Laporan KPI makro operasional, tren total pendapatan bulanan, efisiensi utilitas tempat tidur, dan evaluasi performa bisnis makro. \\[3pt]
+Kepala Bidang Pelayanan Medis
+  & Clinical Manager
+  & Monitoring beban kerja dokter berdasarkan spesialisasi, evaluasi hasil klinis pasien lewat rasio status keluar (Sembuh/Meninggal). \\[3pt]
+Manajer Keuangan / Akuntan
+  & Financial Analyst
+  & Analisis profitabilitas komponen penagihan (obat, tindakan, kamar), pemantauan perputaran arus kas penagihan rumah sakit. \\[3pt]
+Manajer Operasional \& Fasilitas
+  & Operational Analyst
+  & Pengawasan utilitas tipe fasilitas (IGD, Rawat Jalan, Rawat Inap) dan analisis efisiensi operasional harian berdasarkan \textit{Length of Stay} (LOS). \\[3pt]
+Unit Penjaminan \& Klaim (Casemix)
+  & Payer Analyst
+  & Analisis segmentasi metode pembayaran (klaim BPJS, klaim Asuransi Swasta, dan Mandiri) untuk optimalisasi proses verifikasi penagihan. \\[3pt]
+Kepala Instalasi Farmasi RS
+  & Pharmacy Supervisor
+  & Evaluasi biaya obat yang terserap dalam transaksi pelayanan pasien di berbagai unit fasilitas (IGD dan Rawat Jalan). \\[3pt]
+Tim Data Engineer / IT RS
+  & Sistem Administrator
+  & Pemantauan kualitas data transaksi, optimasi performa \textit{query} database OLAP, serta pemeliharaan \textit{pipeline} ETL dari file CSV sumber. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+Sistem DWBI ini menjembatani kebutuhan informasi dari tingkat eksekutif yang memerlukan data agregasi tinggi untuk keputusan strategis (seperti total pendapatan atau tren kunjungan), hingga tingkat operasional yang membutuhkan analisis granularitas rendah (seperti rincian biaya per transaksi).
+ 
+\section{Proses Bisnis Utama}
+ 
+Enam proses bisnis utama berikut diidentifikasi sebagai rantai nilai operasional (\textit{value chain}) yang menjadi sumber data transaksional dan konteks analitik utama di dalam lingkungan rumah sakit:
+ 
+\begin{table}[H]
+\centering
+\caption{Proses Bisnis Utama Domain Operasional Rumah Sakit}
+\small
+\begin{tabularx}{\linewidth}{cp{3cm}Xp{4cm}}
+\toprule
+\textbf{No} & \textbf{Proses Bisnis} & \textbf{Deskripsi} & \textbf{Kolom Terkait} \\
+\midrule
+1 & Pendaftaran \& Profil Pasien
+  & Proses pencatatan data demografis, identitas unik, dan karakteristik fisik pasien saat pertama kali terdaftar di rumah sakit.
+  & \texttt{id\_pasien}, \texttt{nama\_pasien}, \texttt{jenis\_kelamin}, \texttt{tanggal\_lahir}, \texttt{alamat}, \texttt{kota}, \texttt{golongan\_darah} \\[3pt]
+2 & Manajemen Data Master Dokter
+  & Pengelolaan data ketenagakerjaan tenaga medis, legalitas izin praktek, penentuan spesialisasi, dan standarisasi tarif jasa dokter.
+  & \texttt{id\_dokter}, \texttt{nama\_dokter}, \texttt{spesialisasi}, \texttt{biaya\_konsultasi}, \texttt{nomor\_izin\_praktek} \\[3pt]
+3 & Pelayanan Kunjungan Fasilitas
+  & Proses penerimaan pasien di gerbang pelayanan (IGD, Rawat Jalan, Rawat Inap) pada waktu tertentu untuk dialokasikan ke dokter yang bertugas.
+  & \texttt{id\_kunjungan}, \texttt{tanggal\_kunjungan}, \texttt{tipe\_fasilitas} \\[3pt]
+4 & Perawatan Rawat Inap (Opname)
+  & Proses pemantauan durasi hari menginap pasien di bangsal perawatan serta pencatatan kondisi atau status keluar akhir pasien dari perawatan.
+  & \texttt{lama\_rawat\_hari}, \texttt{status\_keluar} \\[3pt]
+5 & Perhitungan \textit{Billing} \& Biaya Medis
+  & Proses kalkulasi penagihan otomatis yang mengakumulasikan komponen biaya penunjang medis (jasa dokter, konsumsi obat, dan biaya tindakan).
+  & \texttt{biaya\_konsultasi}, \texttt{biaya\_obat}, \texttt{biaya\_tindakan}, \texttt{biaya\_kamar} \\[3pt]
+6 & Penyelesaian Pembayaran (Klaim)
+  & Proses pelunasan seluruh tagihan transaksi kunjungan pasien berdasarkan metode penjaminan yang disepakati oleh unit kasir.
+  & \texttt{metode\_pembayaran}, \texttt{total\_biaya} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+Keenam proses bisnis di atas merepresentasikan siklus operasional harian rumah sakit yang terintegrasi. Setiap transaksi yang divalidasi oleh sistem akan terekam ke dalam file \texttt{source\_kunjungan.csv} yang memuat relasi kunci asing ke \texttt{source\_pasien.csv} dan \texttt{source\_dokter.csv}. Pemahaman mendalam terhadap rantai proses bisnis ini menjadi fondasi utama dalam menentukan \textit{grain}, \textit{measures}, dan dimensi pendukung dalam perancangan model dimensional (\textit{Star Schema}) pada bab berikutnya.

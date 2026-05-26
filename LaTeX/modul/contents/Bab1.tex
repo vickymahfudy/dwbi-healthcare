@@ -1,0 +1,102 @@
+\chapter{ Pendahuluan}
+\begin{mybox}{Anggota kelompok}
+\begin{enumerate}
+    \itemsep0em
+	\item Engelbertus Rande (NIM 25/573149/PPA/07211)
+	\item Gilbert Fandiliam Mooy (NIM 25/574767/PPA/07259)
+	\item Sinta Siti Nuriah (NIM 25/575177/PPA/07274)
+	\item Vicky Mahfudy (NIM 25/573019/PPA/07207)
+\end{enumerate}
+\end{mybox}
+
+
+% ============================================================
+%  BAB I: PENDAHULUAN
+% ============================================================
+ 
+ 
+\section{Deskripsi Domain}
+ 
+Domain yang menjadi fokus penelitian ini adalah bidang kesehatan (\textit{healthcare}), khususnya pengelolaan data operasional rumah sakit yang mencakup registrasi pasien, penugasan tenaga medis, serta transaksi kunjungan ke fasilitas kesehatan. Domain ini bersifat multidimensional karena melibatkan berbagai aspek yang saling berkaitan, yaitu profil demografis pasien, klasifikasi keahlian dokter, serta rincian pelayanan medis baik di unit gawat darurat (IGD), rawat jalan, maupun rawat inap.
+ 
+Populasi dalam dataset ini adalah populasi umum pasien yang melakukan kunjungan ke rumah sakit. Cakupan operasional dataset berfokus pada dinamika pelayanan dan administrasi penagihan (\textit{billing}), di mana setiap kunjungan akan menghasilkan beban biaya yang berbeda bergantung pada tipe fasilitas, durasi perawatan, serta tindakan medis yang diberikan. Tiga aspek utama yang menjadi pilar analisis dalam domain ini adalah:
+ 
+\begin{itemize}
+    \item \textbf{Kunjungan Pasien} --- mencakup frekuensi penggunaan tipe fasilitas (rawat inap, rawat jalan, IGD), lama perawatan (\textit{Length of Stay}), status pemulihan saat keluar, dan metode pembayaran.
+    \item \textbf{Tenaga Medis} --- mencakup data spesialisasi dokter, kepemilikan izin praktek (STR), dan struktur biaya konsultasi medis.
+    \item \textbf{Rincian Biaya} --- mencakup rincian penagihan yang terdiri dari biaya konsultasi, obat, tindakan, dan sewa kamar rawat inap yang kemudian diakumulasi menjadi total biaya transaksi.
+\end{itemize}
+ 
+\subsubsection{Gambaran Umum Dataset}
+ 
+Berikut adalah karakteristik lengkap dataset yang digunakan dalam penelitian ini:
+ 
+\begin{table}[H]
+\centering
+\caption{Karakteristik Dataset Operasional Rumah Sakit}
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Aspek} & \textbf{Keterangan} \\
+\midrule
+Nama Dataset            & Healthcare Operations Synthetic Dataset \\
+Sumber Data 1           & \texttt{source\_pasien.csv} --- Data profil demografis pasien (2.500 baris, 7 kolom) \\
+Sumber Data 2           & \texttt{source\_dokter.csv} --- Data master dokter (80 baris, 5 kolom) \\
+Sumber Data 3           & \texttt{source\_kunjungan.csv} --- Data transaksi layanan medis (12.000 baris, 13 kolom) \\
+Total Record Kunjungan  & 12.000 baris \\
+Rentang Waktu Kunjungan & 1 Januari 2025 -- Awal 2026 \\
+Tipe Fasilitas          & IGD, Rawat Jalan, Rawat Inap \\
+Metode Pembayaran       & BPJS, Asuransi Swasta, Mandiri \\
+Format Output           & CSV (\textit{Comma Separated Values}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+Dataset final didistribusikan ke dalam tiga entitas CSV independen yang saling berelasi. Pengelompokan atribut dan informasi kolom ditunjukkan pada tabel berikut.
+ 
+\begin{table}[H]
+\centering
+\caption{Pengelompokan Kolom pada 3 Tabel Sumber}
+\small
+\begin{tabularx}{\linewidth}{p{4.5cm}rX}
+\toprule
+\textbf{Kelompok Kolom} & \textbf{Jml.} & \textbf{Contoh Kolom} \\
+\midrule
+Identitas \& Kunci    & 3 & \texttt{id\_pasien}, \texttt{id\_dokter}, \texttt{id\_kunjungan} \\
+Demografi Pasien      & 6 & \texttt{nama\_pasien}, \texttt{jenis\_kelamin}, \texttt{tanggal\_lahir}, \texttt{alamat}, \texttt{kota}, \texttt{golongan\_darah} \\
+Informasi Medis Dokter & 4 & \texttt{nama\_dokter}, \texttt{spesialisasi}, \texttt{biaya\_konsultasi}, \texttt{nomor\_izin\_praktek} \\
+Utilisasi Layanan     & 4 & \texttt{tanggal\_kunjungan}, \texttt{tipe\_fasilitas}, \texttt{lama\_rawat\_hari}, \texttt{status\_keluar} \\
+Finansial Medis       & 5 & \texttt{metode\_pembayaran}, \texttt{biaya\_obat}, \texttt{biaya\_tindakan}, \texttt{biaya\_kamar}, \texttt{total\_biaya} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+\section{Latar Belakang}
+ 
+Manajemen operasional rumah sakit merupakan tantangan analitik terbesar di sistem pelayanan kesehatan. Transaksi operasional seringkali menghasilkan volume data klinis dan finansial yang sangat besar dari berbagai fasilitas (IGD, Poliklinik, dan Bangsal Inap). Fragmentasi data operasional di berbagai sistem pendaftaran, penjadwalan dokter, dan unit kasir menjadi hambatan utama dalam menghasilkan analitik keuangan dan utilitas fasilitas yang komprehensif.
+ 
+Sistem Data Warehouse dan Business Intelligence (DWBI) hadir sebagai solusi untuk mengintegrasikan, menyimpan, dan menganalisis data transaksional dari berbagai sumber tersebut secara terstruktur dalam suatu model dimensional, sehingga menghasilkan wawasan operasional yang dapat ditindaklanjuti oleh pemangku kepentingan.
+ 
+Penggunaan data sintetis dalam penelitian dan pengembangan DWBI ini dipilih untuk menghindari kendala regulasi perlindungan data privasi yang membatasi akses terhadap rekam medis nyata, namun tetap mempertahankan logika bisnis klinis operasional melalui teknik \textit{synthetic data generation} berbasis aturan kondisional menggunakan bahasa pemrograman Python. Berikut merupakan identifikasi permasalahan:
+ 
+\begin{enumerate}
+    \item Data pendaftaran pasien, jadwal dokter, dan \textit{billing} layanan tersebar di berbagai sumber yang belum terintegrasi, sehingga menyulitkan analisis performa rumah sakit secara holistik.
+    \item Belum tersedianya infrastruktur Data Warehouse yang mampu mengonsolidasikan ketiga aspek tersebut ke dalam satu skema \textit{Star Schema} yang efisien untuk pelaporan bisnis.
+    \item Kurangnya kapabilitas untuk melacak rincian komponen biaya medis (obat, tindakan, kamar, jasa dokter) berdasarkan fasilitas dan spesialisasi secara \textit{real-time}.
+    \item Keterbatasan akses terhadap data riil operasional akibat regulasi privasi memicu kebutuhan pembuatan \textit{pipeline} generator data sintetik berbasis aturan medis (\textit{rule-based}).
+\end{enumerate}
+ 
+\section{Tujuan}
+ 
+\subsubsection{Tujuan Umum}
+ 
+Membangun sistem Data Warehouse dan Business Intelligence (DWBI) operasional rumah sakit yang mengintegrasikan profil pasien, data master dokter, dan log transaksi kunjungan dari sumber terpisah ke dalam suatu pemodelan dimensional untuk mendukung pengambilan keputusan klinis dan finansial.
+ 
+\subsubsection{Tujuan Khusus}
+ 
+\begin{enumerate}
+    \item Mengintegrasikan data dari tiga sumber heterogen (\texttt{source\_pasien.csv}, \texttt{source\_dokter.csv}, dan \texttt{source\_kunjungan.csv}) menjadi satu model data terpadu (12.000 transaksi).
+    \item Menganalisis pola utilisasi fasilitas layanan kesehatan (rawat inap, rawat jalan, IGD) dan mengevaluasi efisiensi operasional berbasis indikator durasi \textit{Length of Stay} (LOS).
+    \item Menganalisis distribusi pendapatan operasional rumah sakit yang dirincikan berdasarkan komponen biaya, spesialisasi tenaga medis, dan metode pembayaran klaim.
+    \item Membangun skema dimensional (\textit{Star Schema}) yang terfokus pada kemudahan ekstraksi pelaporan OLAP tingkat lanjut.
+    \item Menyediakan dataset sintetis berkualitas tinggi sebagai infrastruktur data untuk pengembangan, pengujian, dan demonstrasi sistem DWBI tanpa pelanggaran regulasi privasi pasien.
+\end{enumerate}

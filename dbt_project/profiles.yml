@@ -1,0 +1,12 @@
+dbt_project:
+  target: docker_env
+  outputs:
+    docker_env:
+      type: postgres
+      host: postgres
+      user: airflow
+      password: airflow
+      port: 5432
+      dbname: airflow
+      schema: public
+      threads: 4
