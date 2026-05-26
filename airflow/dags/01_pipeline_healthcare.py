@@ -52,7 +52,7 @@ def ingest_csv_to_postgres():
 # --- 2. FUNGSI OTOMATISASI GENERATE FILE MODEL DBT ---
 def auto_generate_dbt_models():
     # Menembak langsung ke branch 'faker-data' repositori dwbi-healthcare Anda (Menggunakan Raw URL)
-    CONFIG_URL = "https://raw.githubusercontent.com/vickymahfudy/dwbi-healthcare/faker-data/dbt_project/dbt_manifest.yml"
+    CONFIG_URL = "https://raw.githubusercontent.com/vickymahfudy/dwbi-healthcare/main/dbt_project/dbt_manifest.yml"
     DBT_PROJECT_PATH = "/opt/airflow/dbt_project"
     
     print(f"⏳ Mengunduh master manifest YAML dari: {CONFIG_URL}")
