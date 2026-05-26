@@ -4,7 +4,7 @@ import re
 import requests
 import yaml
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
@@ -28,12 +28,26 @@ def ingest_csv_to_postgres():
         'source_kunjungan.csv': 'src_kunjungan'
     }
     
-    for file_name, table_name in files_to_ingest.items():
-        file_path = os.path.join(CSV_DIR, file_name)
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path)
-            df.to_sql(table_name, con=engine, if_exists='replace', index=False, schema='public')
-            print(f"✅ Berhasil menginjeksi {file_name} ke tabel {table_name}")
+    with engine.begin() as conn: # Menggunakan transaksi agar aman
+        for file_name, table_name in files_to_ingest.items():
+            file_path = os.path.join(CSV_DIR, file_name)
+            if os.path.exists(file_path):
+                df = pd.read_csv(file_path)
+                
+                # Cek apakah tabel sudah ada di PostgreSQL
+                table_exists = conn.execute(text(
+                    f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{table_name}');"
+                )).scalar()
+                
+                if table_exists:
+                    # JIKA TABEL SUDAH ADA: Kosongkan isinya (Truncate), lalu insert data baru (append)
+                    conn.execute(text(f"TRUNCATE TABLE public.{table_name};"))
+                    df.to_sql(table_name, con=conn, if_exists='append', index=False, schema='public')
+                    print(f"🔄 Berhasil Truncate & Load {file_name} ke tabel {table_name}")
+                else:
+                    # JIKA TABEL BELUM ADA (Pertama kali running): Buat tabel baru
+                    df.to_sql(table_name, con=conn, if_exists='fail', index=False, schema='public')
+                    print(f"✨ Berhasil membuat tabel baru dan menginjeksi {file_name} ke {table_name}")
 
 # --- 2. FUNGSI OTOMATISASI GENERATE FILE MODEL DBT ---
 def auto_generate_dbt_models():
@@ -129,5 +143,21 @@ with DAG(
         bash_command='cd /opt/airflow/dbt_project && dbt test --target docker_env --profiles-dir .',
     )
 
-    # Definisi dependensi alur kerja (Linear Pipeline)
-    task_generate_data >> task_ingest_data >> task_auto_generate_models >> task_dbt_run >> task_dbt_test
+    # BARU ⭐ Task 6: dbt Docs Generate
+    task_dbt_docs = BashOperator(
+        task_id='dbt_generate_docs',
+        bash_command='cd /opt/airflow/dbt_project && dbt docs generate --target docker_env --profiles-dir .',
+    )
+# Task Docs Serve (Menjalankan server di background agar task Airflow bisa langsung berstatus 'Success')
+    task_dbt_docs_serve = BashOperator(
+        task_id='dbt_serve_docs',
+        bash_command='''
+        # Cek apakah port 8081 sudah dipakai, jika ya, matikan proses lama terlebih dahulu
+        fuser -k 8081/tcp || true
+        
+        # Jalankan dbt docs serve di background menggunakan nohup
+        cd /opt/airflow/dbt_project && nohup dbt docs serve --port 8081 > /opt/airflow/logs/dbt_docs.log 2>&1 &
+        ''',
+    )
+    # Perbarui alur eksekusi di paling bawah file:
+    task_generate_data >> task_ingest_data >> task_auto_generate_models >> task_dbt_run >> task_dbt_test >> task_dbt_docs >>task_dbt_docs_serve
