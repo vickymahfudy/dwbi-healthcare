@@ -3,10 +3,12 @@ dbt_project:
   outputs:
     docker_env:
       type: postgres
-      host: postgres
+      # host: postgres
+      # port: 5432
+      host: "{{ env_var('DB_HOST', 'localhost') }}" # <--- Menggunakan variabel lingkungan dengan default 'localhost'
+      port: "{{ env_var('DB_PORT', 5555) }}" # <--- Menggunakan variabel lingkungan dengan default '5555'
       user: airflow
       password: airflow
-      port: 5432
       dbname: airflow
       schema: public
       threads: 4
