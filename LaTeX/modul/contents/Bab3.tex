@@ -149,36 +149,197 @@ Pendekatan topologi Data Warehouse diwujudkan melalui skema bintang (\textit{Sta
 \end{table}
  
 \begin{center}
+\resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
-  tbl/.style={rectangle, draw=ugmblue, fill=blue!8, rounded corners=4pt,
-    minimum width=3.2cm, minimum height=1.0cm, align=center,
-    font=\small\bfseries},
-  fact/.style={rectangle, draw=ugmblue, fill=ugmblue, rounded corners=4pt,
-    minimum width=4.0cm, minimum height=1.6cm, align=center,
-    font=\small\bfseries, text=white},
-  arr/.style={<->, thick, color=ugmgold, line width=1.2pt}
+  node distance=0pt,
+  every node/.style={outer sep=0pt},
+  % ── Dimension header (dark blue)
+  DH/.style={
+    rectangle, draw=ugmblue, fill=ugmblue!80, text=white,
+    font=\small\bfseries, align=center,
+    text width=4cm, minimum width=4.5cm,
+    inner xsep=5pt, inner ysep=5pt
+  },
+  % ── Dimension body (light blue)
+  DB/.style={
+    rectangle, draw=ugmblue!50, fill=blue!8,
+    font=\footnotesize, align=flush left,
+    text width=4cm, minimum width=4.5cm,
+    inner xsep=10pt, inner ysep=5pt
+  },
+  % ── Fact header (dark blue, wider)
+  FH/.style={
+    rectangle, draw=ugmblue, fill=ugmblue!80, text=white,
+    font=\small\bfseries, align=center,
+    text width=5.2cm, minimum width=5.6cm,
+    inner xsep=5pt, inner ysep=5pt
+  },
+  % ── Fact section sub-header (grey)
+  FS/.style={
+    rectangle, draw=ugmblue!50, fill=gray!30,
+    font=\footnotesize\bfseries, align=center,
+    text width=5.2cm, minimum width=5.6cm,
+    inner xsep=5pt, inner ysep=3pt
+  },
+  % ── Fact body (white-ish)
+  FB/.style={
+    rectangle, draw=ugmblue!50, fill=blue!5,
+    font=\footnotesize, align=flush left,
+    text width=5.2cm, minimum width=5.6cm,
+    inner xsep=10pt, inner ysep=5pt
+  },
+  arr/.style={->, >=latex, line width=1.2pt},
+  lbl/.style={font=\scriptsize\bfseries, inner sep=2pt}
 ]
-  % Fact table (center)
-  \node[fact] (fact) at (0,0)
-    {Fact\_Kunjungan\\{\normalfont\tiny pasien\_key, dokter\_key,}\\
-     {\normalfont\tiny date\_key, fasilitas\_key, bayar\_key}\\
-     {\normalfont\tiny [6 Measures]}};
- 
-  % Dimension tables
-  \node[tbl] (dpasien)    at (-5,  1.5) {\texttt{Dim\_Pasien}\\{\normalfont\tiny SCD Tipe 2}};
-  \node[tbl] (ddokter)    at (-5, -1.5) {\texttt{Dim\_Dokter}\\{\normalfont\tiny SCD Tipe 1}};
-  \node[tbl] (dwaktu)     at ( 0,  3.5) {\texttt{Dim\_Waktu}\\{\normalfont\tiny SCD Tipe 0}};
-  \node[tbl] (dfasilitas) at ( 5,  1.5) {\texttt{Dim\_Fasilitas}\\{\normalfont\tiny SCD Tipe 1}};
-  \node[tbl] (dbayar)     at ( 5, -1.5) {\texttt{Dim\_Pembayaran}\\{\normalfont\tiny SCD Tipe 1}};
- 
-  % Arrows
-  \draw[arr] (fact) -- (dpasien);
-  \draw[arr] (fact) -- (ddokter);
-  \draw[arr] (fact) -- (dwaktu);
-  \draw[arr] (fact) -- (dfasilitas);
-  \draw[arr] (fact) -- (dbayar);
-\end{tikzpicture}
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_WAKTU  (atas-tengah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (wh) at (0, 15.5)
+  {Dim\_Waktu \\ {\normalfont\scriptsize (Tipe SCD 0 -- Fixed)}};
+\node[DB, below=of wh] (wb) {%
+  \textbf{date\_key} (PK, INT) \\
+  tanggal (DATE) \\
+  nama\_hari (VARCHAR) \\
+  bulan (VARCHAR) \\
+  kuartal (INT) \\
+  tahun (INT) \\
+  is\_weekend\_flag (INT)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_PASIEN  (kiri-tengah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (ph) at (-8.5, 10.7)
+  {Dim\_Pasien \\ {\normalfont\scriptsize (Tipe SCD 2 -- Add New Row)}};
+\node[DB, below=of ph] (pb) {%
+  \textbf{pasien\_key} (PK, INT) \\
+  id\_pasien (VARCHAR) \\
+  nama\_pasien (VARCHAR) \\
+  jenis\_kelamin (VARCHAR) \\
+  tanggal\_lahir (DATE) \\
+  alamat (VARCHAR) \\
+  kota (VARCHAR) \\
+  golongan\_darah (VARCHAR)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_DOKTER  (kanan-tengah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (dkh) at (8.5, 10.7)
+  {Dim\_Dokter \\ {\normalfont\scriptsize (Tipe SCD 1 -- Overwrite)}};
+\node[DB, below=of dkh] (dkb) {%
+  \textbf{dokter\_key} (PK, INT) \\
+  id\_dokter (VARCHAR) \\
+  nama\_dokter (VARCHAR) \\
+  spesialisasi (VARCHAR) \\
+  nomor\_izin\_praktek (VARCHAR)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_FASILITAS  (kiri-bawah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (fsh) at (-8.5, 6.3)
+  {Dim\_Fasilitas \\ {\normalfont\scriptsize (Tipe SCD 1 -- Overwrite)}};
+\node[DB, below=of fsh] (fsb) {%
+  \textbf{fasil\_key} (PK, INT) \\
+  tipe\_fasilitas (VARCHAR) \\
+  status\_keluar (VARCHAR)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_PEMBAYARAN  (kanan-bawah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (pyh) at (8.5, 6.3)
+  {Dim\_Pembayaran \\ {\normalfont\scriptsize (Tipe SCD 1 -- Overwrite)}};
+\node[DB, below=of pyh] (pyb) {%
+  \textbf{bayar\_key} (PK, INT) \\
+  metode\_pembayaran (VARCHAR)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  FACT_KUNJUNGAN  (pusat)
+%%────────────────────────────────────────────────────────────────
+\node[FH] (fch) at (0, 10.5)
+  {Fact\_Kunjungan \\ {\normalfont\scriptsize (Pusat / Jantung Arsitektur)}};
+\node[FS, below=of fch] (fcsk)
+  {Kunci Tamu / Foreign Keys (FK1--FK5)};
+\node[FB, below=of fcsk] (fckb) {%
+  \textbf{pasien\_key} (FK1, INT) \\
+  \textbf{dokter\_key} (FK2, INT) \\
+  \textbf{date\_key}\quad\,(FK3, INT) \\
+  \textbf{fasil\_key}\quad\,(FK4, INT) \\
+  \textbf{bayar\_key}\,(FK5, INT)
+};
+\node[FS, below=of fckb] (fcsm)
+  {Measures / Metrik Kuantitatif};
+\node[FB, below=of fcsm] (fcmb) {%
+  lama\_rawat\_hari (INT) \\
+  biaya\_konsultasi (DECIMAL) \\
+  biaya\_obat (DECIMAL) \\
+  biaya\_tindakan (DECIMAL) \\
+  biaya\_kamar (DECIMAL) \\
+  total\_biaya (DECIMAL)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  ARROWS  (Dimensi → Fakta, relasi 1:N)
+%%────────────────────────────────────────────────────────────────
+% Dim_Waktu → Fact  (vertikal dari bawah wb ke atas fch)
+\draw[arr] (wb.south)
+  -- node[lbl, right] {1:N} (fch.north);
+
+% Dim_Pasien → Fact  (horizontal ke sisi kiri, level FK)
+\draw[arr] (pb.east)
+  -- node[lbl, above] {1:N} (pb.east -| fckb.west);
+
+% Dim_Dokter → Fact  (horizontal ke sisi kanan, level FK)
+\draw[arr] (dkb.west)
+  -- node[lbl, above] {1:N} (dkb.west -| fckb.east);
+
+% Dim_Fasilitas → Fact  (horizontal ke sisi kiri, level Measures)
+\draw[arr] (fsb.east)
+  -- node[lbl, above] {1:N} (fsb.east -| fcmb.west);
+
+% Dim_Pembayaran → Fact  (horizontal ke sisi kanan, level Measures)
+\draw[arr] (pyb.west)
+  -- node[lbl, above] {1:N} (pyb.west -| fcmb.east);
+
+\end{tikzpicture}%
+}
 \end{center}
+
+% \begin{center}
+% \begin{tikzpicture}[
+%   tbl/.style={rectangle, draw=ugmblue, fill=blue!8, rounded corners=4pt,
+%     minimum width=3.2cm, minimum height=1.0cm, align=center,
+%     font=\small\bfseries},
+%   fact/.style={rectangle, draw=ugmblue, fill=ugmblue, rounded corners=4pt,
+%     minimum width=4.0cm, minimum height=1.6cm, align=center,
+%     font=\small\bfseries, text=white},
+%   arr/.style={<->, thick, color=ugmgold, line width=1.2pt}
+% ]
+%   % Fact table (center)
+%   \node[fact] (fact) at (0,0)
+%     {Fact\_Kunjungan\\{\normalfont\tiny pasien\_key, dokter\_key,}\\
+%      {\normalfont\tiny date\_key, fasilitas\_key, bayar\_key}\\
+%      {\normalfont\tiny [6 Measures]}};
+ 
+%   % Dimension tables
+%   \node[tbl] (dpasien)    at (-5,  1.5) {\texttt{Dim\_Pasien}\\{\normalfont\tiny SCD Tipe 2}};
+%   \node[tbl] (ddokter)    at (-5, -1.5) {\texttt{Dim\_Dokter}\\{\normalfont\tiny SCD Tipe 1}};
+%   \node[tbl] (dwaktu)     at ( 0,  3.5) {\texttt{Dim\_Waktu}\\{\normalfont\tiny SCD Tipe 0}};
+%   \node[tbl] (dfasilitas) at ( 5,  1.5) {\texttt{Dim\_Fasilitas}\\{\normalfont\tiny SCD Tipe 1}};
+%   \node[tbl] (dbayar)     at ( 5, -1.5) {\texttt{Dim\_Pembayaran}\\{\normalfont\tiny SCD Tipe 1}};
+ 
+%   % Arrows
+%   \draw[arr] (fact) -- (dpasien);
+%   \draw[arr] (fact) -- (ddokter);
+%   \draw[arr] (fact) -- (dwaktu);
+%   \draw[arr] (fact) -- (dfasilitas);
+%   \draw[arr] (fact) -- (dbayar);
+% \end{tikzpicture}
+% \end{center}
  
 \begin{mybox}{Catatan Star Schema}
 \texttt{Fact\_Kunjungan} berada di jantung arsitektur. Secara relasional, setiap rincian transaksi finansial tagihan medis diapit secara langsung (melalui konjungsi kunci indeks numerik tunggal) oleh penjelasan informatif dari lima dimensi pendukung: identitas Pasien yang dilayani, Dokter yang bertugas, Waktu kalender perawatan, letak Fasilitas penanganan, hingga model Pembayaran yang disepakati.
