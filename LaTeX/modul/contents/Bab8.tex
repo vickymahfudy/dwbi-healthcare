@@ -119,6 +119,7 @@ SELECT
     COUNT(fk.kunjungan_key)             AS total_kunjungan,
     SUM(fk.total_biaya)                 AS total_pendapatan_bulanan,
     ROUND(AVG(fk.total_biaya), 2)       AS avg_biaya_per_kunjungan
+\clearpage
 FROM fct_kunjungan fk
 JOIN dim_waktu w ON fk.waktu_key = w.date_key
 GROUP BY w.tahun, w.bulan
