@@ -9,206 +9,108 @@
 \end{enumerate}
 \end{mybox}
 
-\section{Pengenalan DBT}
-\subsection{Konsep dan Arsitektur DBT }
-\textbf{DBT } (\textit{data build tool}) adalah \textit{command-line tool }dan \textit{framework }berbasis Python yang memungkinkan tim data melakukan transformasi data di dalam \textit{data warehouse }menggunakan SQL murni (1). DBT bekerja pada lapisan \textbf{T } (\textit{Transform}) dalam paradigma \textbf{ELT } (\textit{Extract, }\textit{Load, Transform}).
-\begin{mybox}{Definisi Resmi DBT Labs}
-\textit{``dbt enables data analysts and engineers to transform data
-in their warehouses more effectively. ''} --- dbt Labs, 2024.
- 
-Saat ini lebih dari \textbf{40.000 perusahaan} menggunakan DBT dalam
-lingkungan produksi, menjadikannya standar industri \textit{de facto}
-untuk transformasi data di atas \textit{cloud data warehouse}.
-\end{mybox}
-\subsubsection{Paradigma ELT dan Posisi DBT}
- 
-Berbeda dengan \textbf{ETL} tradisional yang mentransformasi data
-\textit{sebelum} memuatnya ke \textit{warehouse}, paradigma
-\textbf{ELT} modern memuat data mentah terlebih dahulu lalu
-mentransformasinya \textit{di dalam} warehouse menggunakan
-kekuatan komputasi cloud.
 
-\begin{center}
-\begin{tikzpicture}[
-  box/.style={rectangle,draw=ugmblue,fill=blue!8,rounded corners=5pt,
-    minimum width=2.5cm,minimum height=1.1cm,align=center,font=\small\bfseries},
-  act/.style={rectangle,draw=ugmblue,fill=ugmblue,rounded corners=5pt,
-    minimum width=2.5cm,minimum height=1.1cm,align=center,
-    font=\small\bfseries,text=white},
-  arr/.style={->,thick,color=ugmgold,line width=1.5pt}
-]
-  \node[box,fill=red!10,draw=red!50] (E)
-    {Extract\\{\tiny Fivetran/Airbyte}};
-  \node[box,fill=orange!10,draw=orange!50,right=1.2cm of E] (L)
-    {Load\\{\tiny Raw tables}};
-  \node[act,right=1.2cm of L] (T)
-    {\textcolor{ugmgold}{T}ransform\\{\tiny \textbf{DBT} bekerja di sini}};
-  \node[box,fill=green!10,draw=green!50,right=1.2cm of T] (A)
-    {Analyse\\{\tiny BI / Dashboard}};
-  \draw[arr] (E)--(L);
-  \draw[arr] (L)--(T);
-  \draw[arr] (T)--(A);
-\end{tikzpicture}
-\end{center}
-DBT tidak mengekstrak atau memuat data---tugas tersebut dilakukan
-oleh \textit{ingestion tool} seperti Fivetran atau Airbyte. DBT
-hanya bekerja pada data yang sudah ada di dalam \textit{warehouse}
-\citep{bi4all2024}. Pendekatan ini melahirkan peran baru bernama
-\textbf{\textit{analytics engineer}}: menggabungkan keahlian SQL
-seorang \textit{data analyst} dengan praktik rekayasa perangkat
-lunak.
-\subsubsection{Arsitektur Berlapis (\textit{Layered Architecture})}
+% ============================================================
+%  BAB I: PENDAHULUAN
+% ============================================================
  
-Praktik terbaik dalam DBT menggunakan arsitektur berlapis yang
-memisahkan tanggung jawab setiap tahap transformasi
-\citep{dbtdoc}:
+\section{Pendahuluan}
  
-\begin{center}
-\begin{tikzpicture}[
-  layer/.style={rectangle,draw=ugmblue!40,rounded corners=4pt,
-    minimum width=11cm,minimum height=0.95cm,
-    align=center,font=\small\bfseries},
-  arr/.style={->,thick,color=ugmgold}
-]
-  \node[layer,fill=red!10] (raw) at (0,0)
-    {RAW / SOURCES \quad
-     {\normalfont\small Data mentah dari sistem sumber, tidak disentuh DBT}};
-  \node[layer,fill=orange!10] (stg) at (0,-1.35)
-    {STAGING \texttt{(stg\_*)} \quad
-     {\normalfont\small Pembersihan, rename kolom, standardisasi tipe data}};
-  \node[layer,fill=yellow!25] (int) at (0,-2.7)
-    {INTERMEDIATE \texttt{(int\_*)} \quad
-     {\normalfont\small Logika bisnis menengah: join, kalkulasi, flag}};
-  \node[layer,fill=green!10] (mrt) at (0,-4.05)
-    {MARTS \texttt{(fct\_* / dim\_*)} \quad
-     {\normalfont\small Tabel analitik final: fact tables dan dimension tables}};
-  \draw[arr] (raw)--(stg);
-  \draw[arr] (stg)--(int);
-  \draw[arr] (int)--(mrt);
-\end{tikzpicture}
-\end{center}
-
-\section{Model dalam DBT dan Pemanfaatannya}
-\subsection{Classic Model}
-Pada modul ini digunakan database \textbf{ClassicModels} dari
-MySQL Tutorial \citep{mysqltut} sebagai dataset eksplorasi.
-ClassicModels adalah database peritel miniatur mobil klasik
-yang menyediakan data bisnis nyata dengan relasi antar tabel
-yang representatif untuk latihan membangun \textit{data warehouse}.
-
+\subsection{Deskripsi Domain}
+ 
+Domain yang menjadi fokus dalam penelitian ini adalah bidang kesehatan (\textit{healthcare}), khususnya terkait pengelolaan data klinis pasien penderita diabetes yang menjalani terapi obat antidiabetik. Domain ini mencakup tiga aspek utama yang saling terintegrasi, yaitu kunjungan pasien (\textit{patient encounter}), diagnosis klinis, serta tindakan medis berupa prosedur diagnostik dan operatif.
+ 
+Dalam konteks sistem informasi kesehatan, data klinis pasien umumnya tersebar di berbagai sumber, mulai dari rekam medis elektronik (\textit{Electronic Health Records}/EHR), database klaim asuransi, hingga sistem informasi farmasi. Integrasi data dari berbagai sumber tersebut merupakan tantangan sekaligus kebutuhan mendasar dalam membangun sistem analitik kesehatan yang komprehensif, terutama untuk mendukung pengambilan keputusan klinis dan manajerial di fasilitas kesehatan.
+ 
+Salah satu indikator kunci dalam manajemen terapi obat kronis seperti diabetes adalah \textbf{Proportion of Days Covered (PDC)}, yaitu ukuran kepatuhan pasien terhadap penggunaan obat yang diresepkan. PDC dihitung sebagai rasio antara jumlah hari pasien memiliki obat terhadap total hari dalam periode pengamatan. Nilai PDC $\geq 0{,}80$ (80\%) secara klinis dianggap sebagai ambang batas kepatuhan yang baik (\textit{adherent}). Kepatuhan obat yang tinggi berkorelasi positif dengan penurunan risiko komplikasi, pengurangan rawat inap, dan efisiensi biaya pelayanan kesehatan.
+ 
+Dataset yang digunakan dalam penelitian ini merupakan dataset sintetis yang dibangun berdasarkan struktur dan distribusi statistik data nyata. Dataset ini menggabungkan dua sumber data, yaitu data klinis pasien dari file \texttt{healthcareTest.csv} yang memuat informasi demografis, komorbiditas, utilisasi layanan, dan biaya kesehatan, serta data tindakan medis dari file \texttt{kaggle\_medical\_procedures\_dummy\@.sql} yang memuat prosedur-prosedur medis berstandar CPT (\textit{Current Procedural Terminology}) dan ICD-10-PCS\@.
+ 
+\subsection{Gambaran Umum Dataset}
+ 
+Berikut adalah ringkasan karakteristik dataset yang digunakan dalam penelitian ini:
+ 
 \begin{table}[H]
 \centering
-\caption{Delapan Tabel Sumber ClassicModels (OLTP)}
-\begin{tabularx}{\linewidth}{llX}
+\caption{Karakteristik Dataset Healthcare Joined}
+\begin{tabularx}{\linewidth}{lX}
 \toprule
-\textbf{Tabel} & \textbf{Baris} & \textbf{Deskripsi} \\
+\textbf{Aspek} & \textbf{Keterangan} \\
 \midrule
-\texttt{customers}    & 122   & Pelanggan: nama, kota, negara, \textit{credit limit} \\
-\texttt{orders}       & 326   & Header pesanan: tanggal, status \\
-\texttt{orderdetails} & 2.996 & Item pesanan: produk, kuantitas, harga satuan \\
-\texttt{products}     & 110   & Katalog produk: nama, lini, vendor, harga \\
-\texttt{productlines} & 7     & Lini produk: Classic Cars, Motorcycles, dll. \\
-\texttt{employees}    & 23    & Karyawan dan struktur organisasi \\
-\texttt{offices}      & 7     & Kantor penjualan: kota, negara, wilayah \\
-\texttt{payments}     & 273   & Pembayaran pelanggan \\
+Nama Dataset      & Healthcare Joined Dataset (Synthetic) \\
+Sumber Data       & \texttt{healthcareTest.csv} + \texttt{kaggle\_medical\_procedures\_dummy.sql} \\
+Jumlah Record     & 10.000 baris \\
+Jumlah Kolom      & 102 kolom \\
+Kelas Obat        & Antidiabetik (\texttt{*ANTIDIABETICS*}) \\
+Rentang Kunjungan & 2019 \-- 2024 \\
+Rentang Prosedur  & 2025 \-- 2026 \\
+Tipe Data         & Sintetis berbasis distribusi data nyata \\
+Format Output     & CSV \& SQL (SQLite-compatible) \\
 \bottomrule
 \end{tabularx}
 \end{table}
-
-Dari 8 tabel OLTP ini akan dibangun \textbf{star schema} dengan 5 tabel dimensi dan 2 tabel fakta menggunakan DBT\@.
-\subsection{Struktur Model dalam DBT}
-Dalam DBT, \textit{best practices} perancangan struktur model menggunakan arsitektur berlapis (\textit{layered architecture}) untuk memisahkan tanggung jawab dari setiap tahap transformasi. Pada implementasi proyek \texttt{classicmodels\_dbt}, strukturnya dibagi sebagai berikut:
-
-% \subsection*{A. Direktori Project (\texttt{models/})}
-DBT menyusun \textit{pipeline}-nya dalam folder \texttt{models/} yang mencakup dua subfolder utama, yaitu:
-
-\begin{itemize}
-    \item \textbf{Folder \texttt{staging/} (Layer Staging)} \\
-    Layer ini bertujuan untuk melakukan standardisasi kolom, perbaikan tipe data, dan pembersihan awal dari \textit{raw data}. Model ini di-\textit{materialize} sebagai \textit{view}.
-    \begin{itemize}
-        \item Terdapat file konfigurasi \texttt{schema.yml} (untuk mendefinisikan sumber data dari OLTP asli beserta \textit{testing} dasar seperti \texttt{not\_null} atau \texttt{unique}).
-        \item File-file SQL yang diberi prefiks \texttt{stg\_} (misalnya: \texttt{stg\_customers.sql}, \\
-        \texttt{stg\_orders.sql}, \texttt{stg\_orderdetails.sql}, \texttt{stg\_products.sql}, \\
-        \texttt{stg\_employees.sql}, \texttt{stg\_offices.sql}).
-    \end{itemize}
-
-    \item \textbf{Folder \texttt{marts/} (Layer Marts / Core)} \\
-    Layer ini memuat struktur tabel analitik final yang menggabungkan logika bisnis dan menerapkan desain \textit{Star Schema} (\textit{Dimensional Modeling}). Tabel-tabel di sini di-\textit{materialize} sebagai tabel fisik di dalam database.
-    \begin{itemize}
-        \item File berprefiks \texttt{dim\_} (Tabel Dimensi / Konteks): \texttt{dim\_date.sql}, \\
-        \texttt{dim\_product.sql}, \texttt{dim\_customer.sql}, \texttt{dim\_employee.sql}, \\
-        \texttt{dim\_office.sql}.
-        \item File berprefiks \texttt{fct\_} (Tabel Fakta / Pengukuran Bisnis): \\
-        \texttt{fct\_sales.sql}, \texttt{fct\_monthly\_sales.sql}.
-        \item File \texttt{schema.yml} untuk mengatur dokumentasi dan aturan \textit{testing} di level \textit{marts}.
-    \end{itemize}
-\end{itemize}
-
-% \subsection*{B. Folder Pendukung Lainnya}
-Selain folder \texttt{models/}, proyek ini juga memanfaatkan struktur komponen DBT lainnya:
-
-\begin{itemize}
-    \item \texttt{tests/}: Berisi \textit{custom SQL script} untuk pengujian logika bisnis spesifik (contohnya memastikan \textit{revenue} selalu positif, \texttt{assert\_revenue\_positive.sql}).
-    \item \texttt{macros/}: Berisi fungsi \textit{reusable} dalam bahasa Jinja2 yang dipakai berulang dalam kode SQL (misalnya \texttt{revenue\_segment.sql}).
-    \item \texttt{dbt\_project.yml}: Merupakan file konfigurasi induk yang mendefinisikan \textit{paths} (alur folder proyek) serta pengaturan \textit{materialization} di tiap layer.
-\end{itemize}
-
-\section{Data Quality dalam DBT}
-% \section{Pengendalian Kualitas Data (\textit{Data Quality}) pada DBT}
-
-Dalam perancangan \textit{Data Warehouse}, memastikan keakuratan dan integritas data adalah sebuah keharusan. DBT (\textit{Data Build Tool}) memfasilitasi kebutuhan ini melalui fitur \textbf{Pengujian Otomatis (\textit{Automated Testing})} yang terintegrasi secara mulus di dalam \textit{pipeline} transformasi data.
-
-Konsep dasar pengujian di dalam DBT sangatlah sederhana: \textbf{sebuah tes adalah \textit{query} SQL (\texttt{SELECT}) yang secara khusus dirancang untuk menangkap data anomali atau data yang melanggar aturan}. Apabila \textit{query} tersebut tidak menemukan data yang salah (mengembalikan 0 baris), maka tes tersebut dinyatakan \textbf{lulus (\textit{pass})}. 
-
-Secara umum, DBT membagi pengujian ke dalam dua pendekatan utama:
-
-\subsection{Pengujian Bawaan (\textit{Generic Tests})}
-\textit{Generic Tests} adalah sekumpulan fungsi pengujian standar bawaan DBT\@. Pengujian ini sangat praktis karena tidak perlu menulis kode SQL secara manual; cukup dengan mendeklarasikannya di dalam file konfigurasi (seperti \texttt{schema.yml})\@. 
-
-Terdapat empat \textit{generic tests} utama yang sering digunakan di industri:
-\begin{itemize}
-    \item \textbf{\texttt{not\_null}}: Memvalidasi bahwa sebuah kolom wajib memiliki isi (tidak boleh \textit{null}).
-    \item \textbf{\texttt{unique}}: Menjamin tidak ada nilai ganda (duplikat) di dalam sebuah kolom. Aturan ini sangat penting untuk memvalidasi kolom \textit{Primary Key}.
-    \item \textbf{\texttt{accepted\_values}}: Membatasi nilai data agar hanya sesuai dengan daftar validasi yang telah ditetapkan (misalnya, kolom \textit{status} hanya boleh berisi nilai `Shipped', `Resolved', atau `Cancelled').
-    \item \textbf{\texttt{relationships}}: Memverifikasi integritas referensial antar tabel (identik dengan konsep \textit{Foreign Key} pada \textit{relational database}).
-\end{itemize}
-
-\textbf{Contoh Pendefinisian di \texttt{schema.yml}:}
-\begin{lstlisting}[caption=Konfigurasi Generic Test]
-sources:
-  - name: raw
-    database: classicmodels
-    tables:
-      - name: orders
-        columns:
-          - name: orderNumber
-            tests: 
-              - not_null
-              - unique
-\end{lstlisting}
-
-\subsection{Pengujian Logika Bisnis (\textit{Singular Tests})}
-Dalam skenario dunia nyata, aturan bisnis seringkali lebih kompleks dari sekadar mengecek nilai kosong atau duplikat. Untuk mengatasi hal ini, DBT menyediakan \textit{Singular Tests}. 
-
-Pada pendekatan ini, pengembang dapat menulis skrip SQL (\textit{custom query}) yang spesifik dan menyimpannya di dalam direktori \texttt{tests/}. Sebagai contoh, pada studi kasus \textbf{Classic Models}, kita harus memastikan bahwa perhitungan pendapatan (\textit{revenue}) tidak boleh bernilai negatif. 
-
-\textbf{Contoh Skrip \texttt{tests/assert\_revenue\_positive.sql}:}
-\begin{lstlisting}[caption=Skrip Singular Test]
--- Skrip ini dirancang untuk mendeteksi baris dengan pendapatan negatif.
--- Tes akan GAGAL jika ada output yang dihasilkan.
-SELECT
-    order_number,
-    line_revenue
-FROM {{ ref('fct_sales') }}
-WHERE line_revenue < 0
-\end{lstlisting}
-
-\subsection{Menjalankan Pengujian (Eksekusi)}
-Setelah semua aturan pengujian (\textit{generic} maupun \textit{singular}) didefinisikan, langkah terakhir adalah mengeksekusinya melalui antarmuka \textit{Command-Line} (CLI):
-\begin{itemize}
-    \item \texttt{dbt test}: Untuk menjalankan seluruh skrip pengujian saja.
-    \item \texttt{dbt build}: Untuk menjalankan proses pembuatan tabel (\textit{run}) dan pengujian (\textit{test}) sekaligus dalam satu urutan kerja.
-\end{itemize}
-
-% \subsection*{Studi Kasus: Classic Models}
-% Pada proyek pembelajaran Classic Models, implementasi arsitektur ini terbukti sangat efektif. \textit{Pipeline} yang dibangun berhasil memvalidasi seluruh logika dengan status \textbf{18/18 tes lulus (\textit{passed})}. Hal ini menjadi jaminan bahwa data telah bertransformasi dari sistem sumber (OLTP) ke dalam bentuk \textit{Star Schema} (\textit{Marts}) dengan tingkat akurasi dan kualitas yang tinggi.
+ 
+Dataset final terdiri dari 10.000 record yang merupakan gabungan 1.032 record hasil \textit{join} langsung antara kedua sumber data asli, ditambah 8.968 record sintetis yang di-\textit{generate} menggunakan distribusi statistik yang dipelajari dari data asli. Keseluruhan dataset memiliki 102 kolom yang dikelompokkan ke dalam sepuluh kategori fungsional sebagaimana ditunjukkan pada Tabel~\ref{tab:kelompok-kolom}.
+ 
+\begin{table}[H]
+\centering
+\caption{Pengelompokan Kolom Dataset}\label{tab:kelompok-kolom}
+\begin{tabularx}{\linewidth}{lrX}
+\toprule
+\textbf{Kelompok Kolom} & \textbf{Jml.} & \textbf{Contoh Kolom} \\
+\midrule
+Identitas \& Kunci           & 3  & \texttt{patIndex}, \texttt{patient\_key}, \texttt{drug\_class} \\
+PDC \& Kepatuhan Obat        & 6  & \texttt{pdc}, \texttt{pdc\_cat}, \texttt{pdc\_80\_flag}, \texttt{age\_grpN}, \texttt{sexN}, \texttt{regionN} \\
+Komorbiditas (Flag Biner)    & 34 & \texttt{DIABETES}, \texttt{HYPERTENSION}, \texttt{ASTHMA}, \texttt{CHF}, \texttt{COPD}, dll. \\
+Utilisasi Layanan PRE-Index  & 8  & \texttt{num\_ip}, \texttt{total\_los}, \texttt{num\_op}, \texttt{num\_er}, \texttt{num\_ndc}, \texttt{num\_gpi6} \\
+Biaya Layanan PRE-Index      & 12 & \texttt{pre\_ip\_cost}, \texttt{pre\_er\_cost}, \texttt{pre\_rx\_cost}, \texttt{pre\_op\_cost}, \texttt{pre\_CCI}, log vars \\
+Utilisasi Layanan POST-Index & 8  & \texttt{num\_ip\_post}, \texttt{total\_los\_post}, \texttt{num\_op\_post}, \texttt{num\_er\_post} \\
+Biaya Layanan POST-Index     & 7  & \texttt{post\_ip\_cost}, \texttt{post\_er\_cost}, \texttt{post\_rx\_cost}, \texttt{post\_total\_cost} \\
+Obat Generik \& Brand        & 12 & \texttt{numofgen}, \texttt{numofbrand}, \texttt{generic\_cost}, \texttt{brand\_cost}, \texttt{ratio\_G\_total\_cost} \\
+Lainnya                      & 3  & \texttt{idx\_copay}, \texttt{log\_idx\_copay}, \texttt{adjust\_total\_30d} \\
+Tindakan Medis (dari SQL)    & 6  & \texttt{Procedure\_ID}, \texttt{Procedure\_Code}, \texttt{Procedure\_Category}, \texttt{Procedure\_Description}, \texttt{Cost} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+\subsection{Latar Belakang}
+ 
+Diabetes melitus merupakan salah satu penyakit tidak menular dengan prevalensi tertinggi di dunia. Menurut data International Diabetes Federation (IDF), terdapat lebih dari 537 juta orang dewasa yang hidup dengan diabetes pada tahun 2021, dan angka ini diproyeksikan meningkat menjadi 784 juta pada tahun 2045. Di Indonesia, diabetes menempati posisi kesebelas sebagai penyakit dengan beban kesehatan tertinggi secara global, dengan estimasi 19,5 juta penderita pada tahun 2021.
+ 
+Pengelolaan diabetes membutuhkan terapi jangka panjang yang berkelanjutan, sehingga kepatuhan pasien terhadap penggunaan obat antidiabetik menjadi faktor penentu keberhasilan tatalaksana penyakit. Penelitian menunjukkan bahwa pasien dengan kepatuhan obat rendah (PDC $< 0{,}80$) memiliki risiko rawat inap yang lebih tinggi, biaya pelayanan kesehatan yang lebih besar, serta kualitas hidup yang lebih rendah dibandingkan pasien dengan kepatuhan tinggi.
+ 
+Di sisi lain, pengelolaan data klinis di fasilitas kesehatan masih menghadapi berbagai tantangan, terutama terkait fragmentasi data, kurangnya integrasi antar sistem, dan keterbatasan dalam pemanfaatan data untuk pengambilan keputusan berbasis bukti (\textit{evidence-based decision making}). Kondisi ini mendorong kebutuhan akan pembangunan sistem \textbf{Data Warehouse dan Business Intelligence (DWBI)} di sektor kesehatan yang mampu mengintegrasikan, menyimpan, dan menganalisis data klinis secara terstruktur dan efisien.
+ 
+Data Warehouse dalam konteks kesehatan berfungsi sebagai repositori terpusat yang mengintegrasikan data dari berbagai sumber operasional seperti sistem EHR, klaim asuransi, sistem farmasi, dan sistem manajemen rumah sakit. Dengan adanya Data Warehouse, pemangku kepentingan di sektor kesehatan dapat melakukan analisis multidimensional, pemantauan indikator kinerja, serta pembuatan laporan yang akurat dan tepat waktu.
+ 
+Penggunaan dataset sintetis dipilih karena data klinis nyata umumnya bersifat sensitif dan terlindungi regulasi privasi seperti HIPAA (\textit{Health Insurance Portability and Accountability Act}) di Amerika Serikat dan peraturan setara di negara-negara lain. Dataset sintetis yang dibangun menggunakan distribusi statistik dari data nyata memungkinkan pengembangan dan pengujian sistem DWBI tanpa risiko pelanggaran privasi, namun tetap mempertahankan karakteristik statistik dan pola klinis yang representatif.
+ 
+\subsection{Identifikasi Permasalahan}
+ 
+Berdasarkan uraian latar belakang di atas, dapat diidentifikasi beberapa permasalahan utama sebagai berikut:
+ 
+\begin{enumerate}
+    \item Data klinis pasien tersebar di berbagai sumber yang belum terintegrasi, sehingga menyulitkan analisis komprehensif terhadap perjalanan klinis pasien secara menyeluruh.
+    \item Belum tersedianya infrastruktur Data Warehouse yang mampu mengintegrasikan data kunjungan pasien, diagnosis, dan tindakan medis dalam satu repositori terpusat.
+    \item Keterbatasan kemampuan analitik untuk memantau indikator kepatuhan obat (PDC) dan korelasinya dengan utilisasi layanan serta biaya kesehatan pasien diabetes.
+    \item Sulitnya mengakses data klinis nyata untuk keperluan pengembangan dan pengujian sistem karena batasan privasi dan regulasi, sehingga diperlukan dataset sintetis yang representatif.
+\end{enumerate}
+ 
+\subsection{Tujuan}
+ 
+\subsubsection{Tujuan Umum}
+ 
+Membangun sistem Data Warehouse dan Business Intelligence (DWBI) di domain kesehatan yang mengintegrasikan data kunjungan pasien, diagnosis klinis, dan tindakan medis dari berbagai sumber data, guna mendukung analisis kepatuhan terapi obat antidiabetik dan pengelolaan biaya pelayanan kesehatan secara komprehensif.
+ 
+\subsubsection{Tujuan Khusus}
+ 
+Secara khusus, penelitian ini bertujuan untuk:
+ 
+\begin{enumerate}
+    \item Mengintegrasikan data dari dua sumber yang berbeda, yaitu data klinis pasien (\texttt{healthcareTest.csv}) dan data tindakan medis (\texttt{kaggle\_medical\_procedures\_dummy.sql}), menjadi satu dataset terpadu dengan struktur 102 kolom dan 10.000 record.
+    \item Membangun skema Data Warehouse yang sesuai untuk menyimpan dan mengelola data klinis pasien diabetes, mencakup dimensi pasien, dimensi waktu, dimensi prosedur medis, serta tabel fakta utilisasi dan biaya layanan.
+    \item Menganalisis pola kepatuhan obat pasien antidiabetik berdasarkan nilai PDC (\textit{Proportion of Days Covered}) dan korelasinya dengan variabel klinis seperti komorbiditas, jenis asuransi, kategori usia, dan tipe pembayaran.
+    \item Menganalisis pola utilisasi layanan kesehatan (rawat inap, rawat jalan, gawat darurat) dan distribusi biaya pelayanan sebelum (\textit{pre-index}) dan sesudah (\textit{post-index}) periode pengobatan sebagai bagian dari evaluasi efektivitas terapi.
+    \item Menganalisis distribusi tindakan medis berdasarkan kode prosedur CPT dan ICD-10, termasuk pola biaya prosedur per kategori (Laboratory, Radiology, Diagnostic, Surgery) untuk mendukung pengelolaan sumber daya fasilitas kesehatan.
+    \item Menyediakan dataset sintetis berkualitas tinggi sebagai infrastruktur data yang dapat digunakan untuk pengembangan, pengujian, dan demonstrasi sistem DWBI di sektor kesehatan tanpa melanggar regulasi privasi data pasien.
+\end{enumerate}
