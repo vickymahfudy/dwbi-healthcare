@@ -4,7 +4,7 @@
 # name or the intended use of these models
 name: 'dbt_project'
 version: '1.0.0'
-config-version: 2  # <--- TAMBAHKAN BARIS INI
+config-version: 2  
 
 # This setting configures which "profile" dbt uses for this project.
 profile: 'dbt_project'
@@ -25,6 +25,21 @@ clean-targets:         # directories to be removed by `dbt clean`
 
 
 # Configuring models
+
+models:
+  dbt_project: # WAJIB SAMA dengan properti 'name' di baris paling atas!
+    
+    # 1. Konfigurasi untuk Layer Staging (Data Mentah)
+    staging:
+      +materialized: view # Disimpan sebagai View agar hemat penyimpanan & selalu real-time
+    
+    # 2. Konfigurasi untuk Layer Dimensions (Master Data / SCD)
+    dimensions:
+      +materialized: table # Disimpan sebagai Table agar query analitik lebih cepat
+    
+    # 3. Konfigurasi untuk Layer Marts (Tabel Fakta Utama)
+    marts:
+      +materialized: table # Disimpan sebagai Table karena volume transaksi besar
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
 
 # In this example config, we tell dbt to build all models in the example/

@@ -6,7 +6,7 @@ dbt_project:
       # host: postgres
       # port: 5432
       host: "{{ env_var('DB_HOST', 'localhost') }}" # <--- Menggunakan variabel lingkungan dengan default 'localhost'
-      port: "{{ env_var('DB_PORT', 5555) }}" # <--- Menggunakan variabel lingkungan dengan default '5555'
+      port: "{{ env_var('DB_PORT', 5555) | int }}" # <--- Menggunakan variabel lingkungan dengan default '5555'
       user: airflow
       password: airflow
       dbname: airflow

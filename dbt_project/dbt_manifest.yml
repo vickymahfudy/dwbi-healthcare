@@ -140,20 +140,133 @@ models/marts/fact_kunjungan.sql: |
 
 models/marts/schema.yml: |
   version: 2
-  models:
-    - name: fact_kunjungan
-      description: "Tabel fakta utama transaksi kunjungan pelayanan medis rumah sakit"
-      columns:
-        - name: pasien_key
-          tests:
-            - not_null
-        - name: dokter_key
-          tests:
-            - not_null
-        - name: date_key
-          tests:
-            - not_null
-        - name: total_biaya
-          description: "Akumulasi tagihan akhir (konsultasi + obat + tindakan + kamar)"
-          tests:
-            - not_null
+
+    models:
+      # =========================================================================
+      # STAGING LAYER
+      # =========================================================================
+      - name: stg_pasien
+        description: "Data mentah pasien dari sistem pendaftaran"
+        columns:
+          - name: id_pasien
+            tests:
+              - unique
+              - not_null
+          - name: jenis_kelamin
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: ['L', 'P', 'Laki-laki', 'Perempuan']
+                  config:
+                    severity: warn 
+
+      - name: stg_dokter
+        description: "Data master dokter aktif"
+        columns:
+          - name: id_dokter
+            tests:
+              - unique
+              - not_null
+
+      - name: stg_kunjungan
+        description: "Data transaksi kunjungan dan rincian biaya medis harian"
+        columns:
+          - name: id_kunjungan
+            tests:
+              - unique
+              - not_null
+          - name: id_pasien
+            tests:
+              - not_null
+          - name: id_dokter
+            tests:
+              - not_null
+
+      # =========================================================================
+      # DIMENSION LAYER
+      # =========================================================================
+      - name: dim_pasien
+        description: "Dimensi master pasien dengan penerapan SCD Tipe 2"
+        columns:
+          - name: pasien_key
+            tests:
+              - unique
+              - not_null
+
+      - name: dim_dokter
+        description: "Dimensi master dokter dengan penerapan SCD Tipe 1"
+        columns:
+          - name: dokter_key
+            tests:
+              - unique
+              - not_null
+
+      - name: dim_waktu
+        description: "Dimensi waktu kalender berdasarkan tanggal kunjungan"
+        columns:
+          - name: date_key
+            tests:
+              - unique
+              - not_null
+
+      - name: dim_fasilitas
+        description: "Dimensi tipe fasilitas rumah sakit dan status keluar"
+        columns:
+          - name: fasilitas_key
+            tests:
+              - unique
+              - not_null
+
+      - name: dim_pembayaran
+        description: "Dimensi metode pembayaran administrasi medis"
+        columns:
+          - name: bayar_key
+            tests:
+              - unique
+              - not_null
+
+      # =========================================================================
+      # MART LAYER (SOLUSI: Semua argumen dibungkus dalam blok arguments)
+      # =========================================================================
+      - name: fact_kunjungan
+        description: "Tabel fakta utama transaksi kunjungan pelayanan medis rumah sakit"
+        columns:
+          - name: pasien_key
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: ref('dim_pasien')
+                    field: pasien_key
+          - name: dokter_key
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: ref('dim_dokter')
+                    field: dokter_key
+          - name: date_key
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: ref('dim_waktu')
+                    field: date_key
+          - name: fasilitas_key
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: ref('dim_fasilitas')
+                    field: fasilitas_key
+          - name: bayar_key
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: ref('dim_pembayaran')
+                    field: bayar_key
+          - name: total_biaya
+            description: "Akumulasi tagihan akhir (konsultasi + obat + tindakan + kamar)"
+            tests:
+              - not_null

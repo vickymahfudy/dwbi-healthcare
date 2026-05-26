@@ -62,6 +62,19 @@ services:
       - MB_JETTY_PORT=3000
     restart: always
 
+  # Container pgAdmin untuk akses Web Browser
+  pgadmin_web:
+    image: dpage/pgadmin4
+    container_name: pgadmin_container
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@example.com
+      PGADMIN_DEFAULT_USERNAME: admin
+      PGADMIN_DEFAULT_PASSWORD: password123
+    ports:
+      - "8088:80"
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres:13
     environment:
@@ -137,6 +150,8 @@ services:
       start_period: 30s
     environment:
       <<: *airflow-common-env
+      DB_HOST: postgres 
+      DB_PORT: 5432
       DUMB_INIT_SETSID: "0"
     restart: always
     depends_on:

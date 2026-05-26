@@ -1,0 +1,115 @@
+
+% ============================================================
+%  BAB IX: KESIMPULAN DAN REFLEKSI
+% ============================================================
+ 
+\chapter{Kesimpulan dan Refleksi}
+ 
+\section{Ringkasan Pencapaian Proyek}
+ 
+Proyek ini berhasil membangun sistem Data Warehouse dan Business Intelligence (DWBI) operasional rumah sakit secara \textit{end-to-end} dalam satu ekosistem terpadu berbasis Docker. Dimulai dari pembangkitan data sintetis menggunakan Python, proses orkestrasi otomatis melalui Apache Airflow, transformasi modular menggunakan dbt, hingga penyediaan Data Mart yang siap dikonsumsi oleh Metabase sebagai \textit{Business Intelligence tool}. Seluruh komponen berhasil diintegrasikan dan diverifikasi dengan hasil pengujian 18/18 \texttt{dbt test} lulus tanpa kegagalan.
+ 
+\section{Tantangan yang Dihadapi}
+ 
+Selama proses pembangunan sistem DWBI ini, terdapat beberapa tantangan teknis dan desain yang dihadapi:
+ 
+\begin{enumerate}
+ 
+  \item \textbf{Konfigurasi Jaringan Docker (\textit{Port Forwarding})}
+ 
+  Tantangan terbesar yang dihadapi adalah permasalahan konektivitas jaringan antar container Docker. Metabase yang dijalankan di luar jaringan internal Docker tidak dapat mengakses PostgreSQL melalui \textit{port} standar 5432 secara langsung. Solusi yang diterapkan adalah mengekspos \textit{port} PostgreSQL ke jaringan \textit{host} melalui \textit{port forwarding} eksternal \texttt{5555:5432} pada \texttt{docker-compose.yaml}, dan mengonfigurasi Metabase untuk menggunakan alamat \texttt{host.docker.internal:5555} sebagai jalur komunikasi lintas batas kontainer.
+ 
+  \item \textbf{Konsistensi Surrogate Key antar Lapisan dbt}
+ 
+  Pada tahap awal implementasi, ditemukan inkonsistensi antara \textit{Surrogate Key} yang dihasilkan pada lapisan \textit{dimensions} dengan kunci yang direferensikan pada lapisan \textit{marts}. Inkonsistensi ini disebabkan oleh perbedaan input fungsi hashing MD5 yang digunakan untuk menghasilkan \texttt{pasien\_key} dan \texttt{dokter\_key}. Solusinya adalah dengan menyeragamkan kolom input fungsi \texttt{dbt\_utils.generate\_surrogate\_key()} pada seluruh model dimensi dan memastikan bahwa model fakta merujuk kunci dari hasil \texttt{ref()} dimensi, bukan dari tabel sumber mentah.
+ 
+  \item \textbf{Penanganan Data Sintetis yang Realistis}
+ 
+  Menghasilkan data sintetis yang memiliki distribusi statistik realistis memerlukan pengaturan \textit{constraint} yang cermat. Awalnya, generator Python menghasilkan nilai negatif pada kolom biaya dan durasi rawat inap yang melebihi 14 hari untuk pasien IGD. Solusinya adalah dengan menerapkan logika kondisional berbasis \texttt{if-else} per tipe fasilitas dan membatasi rentang nilai menggunakan \texttt{random.randint()} dengan batas atas dan bawah yang eksplisit, serta memastikan \texttt{total\_biaya} selalu dihitung secara deterministik dari penjumlahan komponen.
+ 
+  \item \textbf{Orkestrasi Dependensi Task Airflow}
+ 
+  Pada percobaan awal, task \texttt{dbt\_run} dieksekusi sebelum proses ingesti data dari CSV ke PostgreSQL selesai sepenuhnya, sehingga model dbt membangun tabel dimensi dari tabel sumber yang masih kosong. Solusinya adalah mempertegas urutan dependensi linear menggunakan operator \texttt{>>} di Airflow dan menambahkan \textit{sensor task} untuk memverifikasi bahwa tabel sumber (\texttt{src\_kunjungan}) telah terisi sebelum eksekusi \texttt{dbt run} dimulai.
+ 
+  \item \textbf{Pengelolaan Tipe Data Tanggal lintas Sistem}
+ 
+  Format tanggal dari file CSV (\texttt{YYYY-MM-DD HH:MM:SS}) tidak langsung kompatibel dengan tipe \texttt{DATE} pada PostgreSQL saat proses ingesti menggunakan Pandas. Hal ini menyebabkan kegagalan pada model \texttt{dim\_waktu} yang memerlukan kolom bertipe \texttt{DATE} bersih. Solusinya adalah menambahkan konversi eksplisit \texttt{pd.to\_datetime().dt.date} pada skrip ingesti Python sebelum data ditulis ke tabel \textit{staging}, diikuti dengan \textit{type casting} tambahan \texttt{CAST(tanggal\_kunjungan AS DATE)} pada model \texttt{stg\_kunjungan.sql}.
+ 
+\end{enumerate}
+ 
+\section{Keputusan Desain Utama}
+ 
+Beberapa keputusan desain fundamental yang diambil selama pengembangan sistem dan alasan teknis di baliknya:
+ 
+\begin{table}[H]
+\centering
+\caption{Ringkasan Keputusan Desain Utama Sistem DWBI}
+\small
+\begin{tabularx}{\linewidth}{p{3.5cm}p{3.5cm}X}
+\toprule
+\textbf{Keputusan Desain} & \textbf{Alternatif yang Dipertimbangkan} & \textbf{Alasan Pemilihan} \\
+\midrule
+\textit{Star Schema} murni (fully denormalized)
+  & \textit{Snowflake Schema} (normalized dimensions)
+  & Meminimalkan kompleksitas JOIN pada \textit{query} BI, mempercepat respons agregasi, dan lebih mudah dipahami oleh pengguna bisnis non-teknis. \\[4pt]
+ 
+Pendekatan ELT (bukan ETL)
+  & ETL tradisional dengan transformasi di luar database
+  & Memanfaatkan kekuatan komputasi PostgreSQL di dalam database, memungkinkan dbt mengelola seluruh logika transformasi secara versi-terkontrol. \\[4pt]
+ 
+\textit{Surrogate Key} berbasis MD5 Hash
+  & \textit{Auto-increment integer} (SERIAL)
+  & Menghasilkan kunci yang deterministik dan dapat direproduksi meski pipeline dijalankan ulang, sehingga mencegah duplikasi kunci saat proses \textit{reload} data. \\[4pt]
+ 
+Materialisasi \texttt{view} untuk lapisan \textit{staging}
+  & Materialisasi \texttt{table} untuk semua lapisan
+  & Menghemat ruang penyimpanan karena lapisan \textit{staging} hanya berfungsi sebagai antarmuka pembersih, bukan repositori permanen. \\[4pt]
+ 
+Orkestrasi Apache Airflow dengan \textit{manual trigger}
+  & Penjadwalan otomatis harian (\texttt{@daily})
+  & Memberikan kontrol eksplisit atas siklus pembaruan data selama fase pengembangan, menghindari eksekusi tidak terduga saat konfigurasi sistem masih diubah. \\[4pt]
+ 
+Data sintetis berbasis aturan kondisional (\textit{rule-based})
+  & Data sintetis berbasis distribusi statistik (GAN/VAE)
+  & Lebih mudah dikontrol, dapat direproduksi dengan \texttt{random.seed()}, dan tidak memerlukan data nyata sebagai data latih model generatif. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+\section{Kesiapan Data Mart untuk Tugas BI (Visualisasi Data)}
+ 
+Data Mart yang telah dibangun dinyatakan \textbf{siap} untuk digunakan pada Tugas BI berikutnya berdasarkan hasil verifikasi berikut:
+ 
+\begin{table}[H]
+\centering
+\caption{Checklist Kesiapan Data Mart untuk Tugas BI}
+\small
+\begin{tabularx}{\linewidth}{p{0.5cm}p{5cm}p{2.5cm}X}
+\toprule
+\textbf{No} & \textbf{Kriteria Kesiapan} & \textbf{Status} & \textbf{Bukti Verifikasi} \\
+\midrule
+1 & Integritas referensial antar tabel terjaga   & \checkmark\ Lulus & 18/18 \texttt{dbt test} PASS \\
+2 & Tidak ada nilai \textit{null} pada kolom kunci dan \textit{measures} & \checkmark\ Lulus & \textit{Data quality check} \\
+3 & Volume data memadai (12.000 transaksi)       & \checkmark\ Lulus & COUNT(\texttt{kunjungan\_key}) = 12.000 \\
+4 & Koneksi Metabase ke PostgreSQL berhasil      & \checkmark\ Lulus & \textit{Screenshot} konfigurasi 5.5.3 \\
+5 & \textit{Query} analitik 5 BQ menghasilkan nilai valid  & \checkmark\ Lulus & Screenshot hasil 5 \textit{query} \\
+6 & Skema \textit{Star Schema} terdeteksi Metabase        & \checkmark\ Lulus & Tabel \texttt{dim\_*} dan \texttt{fct\_*} terbaca \\
+7 & Metrik KPI terdefinisi pada \textit{Semantic Layer}   & \checkmark\ Lulus & 3 formula KPI di dbt \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+Berdasarkan hasil verifikasi pada tabel di atas, tabel \texttt{fct\_kunjungan} dan kelima tabel dimensi (\texttt{dim\_pasien}, \texttt{dim\_dokter}, \texttt{dim\_waktu}, \texttt{dim\_fasilitas}, \texttt{dim\_pembayaran}) telah tersedia di database PostgreSQL dalam kondisi bersih, terstruktur, dan dapat dibaca secara langsung oleh Metabase.
+ 
+Pada Tugas BI berikutnya, seluruh 12 \textit{business questions} yang telah ditetapkan pada BAB II dapat dijawab melalui visualisasi interaktif menggunakan Metabase, mencakup:
+ 
+\begin{itemize}
+  \item \textbf{Dasbor Finansial:} Grafik batang total pendapatan per tipe fasilitas, \textit{pie chart} distribusi metode pembayaran, dan kartu KPI total pendapatan operasional.
+  \item \textbf{Dasbor Kinerja Klinis:} Grafik peringkat dokter berdasarkan volume transaksi, distribusi status keluar pasien Rawat Inap, dan rata-rata \textit{Length of Stay} per fasilitas.
+  \item \textbf{Dasbor Tren Operasional:} Grafik garis tren bulanan jumlah kunjungan, analisis komponen biaya per kategori, dan \textit{heatmap} distribusi kunjungan berdasarkan waktu.
+  \item \textbf{Dasbor Demografi:} Distribusi kunjungan berdasarkan kota asal, analisis \textit{cross-tabulation} jenis kelamin dan golongan darah, serta peta geografi beban kunjungan per wilayah.
+\end{itemize}
+ 
+\begin{mybox}{Kesimpulan Akhir}
+Sistem DWBI operasional rumah sakit ini berhasil dibangun secara \textit{end-to-end} dengan memenuhi seluruh kriteria teknis: integritas data terjamin, \textit{pipeline} ETL terotomatisasi, dokumentasi lengkap, dan Data Mart terhubung ke BI tool. Proyek ini membuktikan bahwa arsitektur modern berbasis ELT dengan dbt dan Airflow mampu menghasilkan infrastruktur analitik yang andal, dapat dipelihara, dan siap mendukung pengambilan keputusan klinis serta manajerial di fasilitas kesehatan.
+\end{mybox}

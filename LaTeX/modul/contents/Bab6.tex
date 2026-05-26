@@ -1,0 +1,125 @@
+\chapter{Implementasi dbt (Data Build Tool)}
+ 
+% ============================================================
+%  6 IMPLEMENTASI DBT (DATA BUILD TOOL)
+% ============================================================
+ 
+Proses transformasi data dalam arsitektur Data Warehouse kesehatan ini menerapkan pendekatan ELT (\textit{Extract-Load-Transform}). Setelah data mentah (\textit{raw data}) dimuat ke dalam database pementasan oleh Apache Airflow, seluruh lapisan transformasi dan pemodelan data diserahkan kepada \textbf{dbt} (\textit{Data Build Tool}).
+ 
+Peran dbt di dalam sistem ini adalah mengelola kode SQL transformasi secara modular, menerapkan prinsip rekayasa perangkat lunak seperti kontrol versi (\textit{version control}), memisahkan logika bisnis ke dalam beberapa tingkatan (\textit{layering}), melakukan pengujian integritas otomatis, serta menghasilkan dokumentasi skema data secara interaktif.
+ 
+\section{Struktur Proyek dbt}
+ 
+Proyek dbt diintegrasikan di dalam ekosistem Docker Apache Airflow pada direktori \texttt{/opt/airflow/dbt\_project}. Struktur direktori ini dirancang secara modular untuk memisahkan konfigurasi global, kredensial keamanan, dan berkas kode transformasi SQL.
+ 
+Berikut adalah visualisasi struktur direktori (\textit{directory tree}) dari proyek dbt secara menyeluruh:
+ 
+\begin{figure}[H]
+\dirtree{%
+  .1 dbt\_project/.
+  .2 dbt\_project.yml \DTcomment{Konfigurasi utama proyek dbt}.
+  .2 profiles.yml \DTcomment{Konfigurasi keamanan dan koneksi database}.
+  .2 target/ \DTcomment{Berkas hasil kompilasi otomatis dbt (generated)}.
+  .2 models/.
+  .3 staging/.
+  .4 sources.yml \DTcomment{Deklarasi tabel sumber mentah (PostgreSQL public)}.
+  .4 stg\_pasien.sql \DTcomment{Transformasi awal data pasien}.
+  .4 stg\_dokter.sql \DTcomment{Transformasi awal data dokter}.
+  .4 stg\_kunjungan.sql \DTcomment{Transformasi awal data kunjungan}.
+  .3 dimensions/.
+  .4 dim\_pasien.sql \DTcomment{Pembentukan tabel master dimensi pasien}.
+  .4 dim\_dokter.sql \DTcomment{Pembentukan tabel master dimensi dokter}.
+  .4 dim\_waktu.sql \DTcomment{Pembentukan tabel master dimensi deret waktu}.
+  .4 dim\_fasilitas.sql \DTcomment{Pembentukan dimensi tipe fasilitas pelayanan}.
+  .4 dim\_pembayaran.sql \DTcomment{Pembentukan dimensi jenis metode pembayaran}.
+  .3 marts/.
+  .4 fct\_kunjungan.sql \DTcomment{Pembentukan tabel fakta utama transaksi kunjungan}.
+  .4 schema.yml \DTcomment{Deklarasi pengujian data \& dokumentasi kolom}.
+}
+\caption{Struktur Direktori Proyek dbt}
+\label{fig:dbt_dirtree}
+\end{figure}
+ 
+Penjelasan fungsional dari berkas konfigurasi utama proyek adalah sebagai berikut:
+ 
+\begin{itemize}
+    \item \textbf{\texttt{dbt\_project.yml}:} Berkas konfigurasi pusat yang mendefinisikan nama proyek (\texttt{healthcare\\\_transformation}), versi, konfigurasi profil koneksi yang harus digunakan, serta aturan materialisasi (\textit{materialization}) global untuk masing-masing direktori \texttt{models}. Direktori \texttt{staging} dikonfigurasi sebagai \texttt{view} guna menghemat ruang penyimpanan, sedangkan direktori \texttt{dimensions} dan \texttt{marts} dimaterialisasikan sebagai \texttt{table} secara fisik untuk mengoptimalkan kecepatan \textit{query} analitik.
+ 
+    \item \textbf{\texttt{profiles.yml}:} Menyimpan detail teknis kredensial database PostgreSQL, termasuk alamat \textit{host} jaringan Docker (\texttt{postgres}), \textit{port} (5432), nama database (\texttt{airflow}), skema target (\texttt{public}), serta batasan jumlah \textit{threads} komputasi paralel yang diizinkan untuk mengeksekusi \textit{query} secara bersamaan.
+\end{itemize}
+ 
+\section{Penjelasan Tiap Lapisan (\textit{Layering Architecture})}
+ 
+Untuk menjamin pemeliharaan kode yang berkelanjutan dan mencegah redundansi logika SQL, arsitektur transformasi dbt dibagi menjadi tiga lapisan terisolasi yang saling bergantung secara sekuensial (\textit{lineage dependency}):
+ 
+\begin{center}
+\begin{tikzpicture}[
+  layer/.style={rectangle, draw=ugmblue!40, rounded corners=4pt,
+    minimum width=11cm, minimum height=0.9cm,
+    align=center, font=\small\bfseries},
+  arr/.style={->, thick, color=ugmgold}
+]
+  \node[layer, fill=red!10]    (raw) at (0,0)
+    {RAW / SOURCES \quad
+     {\normalfont\small \texttt{src\_pasien}, \texttt{src\_dokter},
+      \texttt{src\_kunjungan} (PostgreSQL)}};
+  \node[layer, fill=orange!10] (stg) at (0,-1.4)
+    {STAGING \texttt{(stg\_*)} \quad
+     {\normalfont\small Standardisasi kolom, \textit{type casting},
+      sanitasi nilai kosong}};
+  \node[layer, fill=yellow!20] (dim) at (0,-2.8)
+    {DIMENSIONS \texttt{(dim\_*)} \quad
+     {\normalfont\small Surrogate key, deduplication,
+      kompilasi deret waktu}};
+  \node[layer, fill=green!10]  (mrt) at (0,-4.2)
+    {MARTS \texttt{(fct\_kunjungan)} \quad
+     {\normalfont\small Star Schema joins, substitusi kunci,
+      isolasi metrik kuantitatif}};
+  \draw[arr] (raw)--(stg);
+  \draw[arr] (stg)--(dim);
+  \draw[arr] (dim)--(mrt);
+\end{tikzpicture}
+\end{center}
+ 
+\textbf{1. Lapisan Staging (\texttt{models/staging/})}
+ 
+Lapisan \textit{staging} merupakan gerbang pertama yang berhadapan langsung dengan data mentah hasil ekstraksi dari file CSV (\texttt{src\_pasien}, \texttt{src\_dokter}, \texttt{src\_kunjungan}). Prinsip utama pada lapisan ini adalah melakukan pembersihan awal tanpa mengubah granularitas data asli. Transformasi yang dilakukan meliputi:
+ 
+\begin{itemize}
+    \item \textbf{Standardisasi Nama Kolom (\textit{Renaming}):} Mengubah format nama kolom yang tidak seragam dari sistem sumber menjadi format \textit{snake\_case} yang baku (misalnya mengubah \texttt{NamaDokter} menjadi \texttt{nama\_dokter}).
+    \item \textbf{Penyelarasan Tipe Data (\textit{Type Casting}):} Mengonversi tipe data teks dari CSV menjadi tipe data yang tepat pada database, seperti mengubah format tanggal teks menjadi tipe \texttt{DATE}, dan nominal biaya menjadi tipe \texttt{NUMERIC(15,2)} untuk presisi finansial.
+    \item \textbf{Sanitasi Data Mentah (\textit{Data Cleansing}):} Mengidentifikasi nilai kosong (\textit{null values}) dan menggunakan fungsi \texttt{COALESCE} untuk memberikan nilai bawaan (\textit{default value}) yang representatif agar tidak merusak kalkulasi analitik di tahap berikutnya.
+\end{itemize}
+ 
+\textbf{2. Lapisan Dimensions (\texttt{models/dimensions/})}
+ 
+Lapisan \textit{dimensions} berfungsi untuk membangun tabel-tabel master penjelas (\textit{contextual tables}) yang berisi atribut deskriptif mengenai entitas bisnis rumah sakit. Tabel-tabel ini dirancang dalam bentuk terdenormalisasi penuh untuk mengoptimalkan kecepatan pembacaan data saat proses visualisasi. Transformasi utama pada lapisan ini meliputi:
+ 
+\begin{itemize}
+    \item \textbf{Pembuatan Kunci Pengganti (\textit{Surrogate Key}):} dbt menghasilkan \textit{Surrogate Key} unik berbasis algoritma \textit{hashing} biner (MD5) untuk menggantikan kunci alami (\textit{natural key}) dari sistem sumber. Hal ini penting untuk menjaga independensi Data Warehouse jika terjadi perubahan struktur pada database operasional di masa mendatang.
+    \item \textbf{Eliminasi Duplikasi (\textit{Deduplication}):} Menerapkan fungsi jendela SQL (\texttt{ROW\_NUMBER()}) untuk memastikan bahwa setiap entitas (seperti pasien dan dokter) bersifat unik dan tidak memiliki rekaman ganda.
+    \item \textbf{Kompilasi Deret Waktu (\textit{Time Dimension Expansion}):} Memecah satu kolom tanggal kunjungan menjadi atribut temporal yang kaya, seperti hari, nama hari, bulan, tahun, kuartal, dan indikator hari kerja (\textit{weekday/weekend}).
+\end{itemize}
+ 
+\textbf{3. Lapisan Marts (\texttt{models/marts/})}
+ 
+Lapisan \textit{marts} adalah lapisan produk data akhir (\textit{end-product layer}) yang merepresentasikan domain bisnis operasional kunjungan medis dan finansial rumah sakit. Lapisan ini menghasilkan tabel fakta utama bernama \texttt{fct\_kunjungan}. Transformasi pada tahap ini meliputi:
+ 
+\begin{itemize}
+    \item \textbf{Operasi Penyambungan Relasional (\textit{Star Schema Joins}):} Menggabungkan tabel pementasan kunjungan (\texttt{stg\_kunjungan}) dengan seluruh tabel dimensi yang telah terbentuk pada lapisan sebelumnya.
+    \item \textbf{Substitusi Kunci:} Mengganti seluruh \textit{natural ID} asli dengan \textit{Surrogate Key} yang berasal dari tabel dimensi untuk membentuk hubungan kunci asing (\textit{Foreign Keys}) yang solid.
+    \item \textbf{Isolasi Metrik Kuantitatif (\textit{Measures}):} Menyediakan kolom-kolom numerik murni yang dapat dijumlahkan (\textit{additive measures}), seperti durasi rawat inap, biaya konsultasi, biaya obat, biaya tindakan, dan biaya kamar.
+\end{itemize}
+ 
+\section{Hasil dbt Docs dan Lineage Graph}
+ 
+Salah satu keunggulan implementasi dbt dalam proyek ini adalah kemampuan otomatisasi dokumentasi melalui \textit{task} \texttt{task\_dbt\_docs} dan \texttt{task\_dbt\_docs\_serve} pada DAG Airflow. Ketika \textit{pipeline} berjalan sukses, dbt mengekstrak seluruh metadata database, deskripsi kolom, serta batasan pengujian ke dalam berkas JSON statis, lalu mempublikasikannya melalui \textit{web server} lokal pada \textit{port} 8081.
+ 
+Dokumentasi interaktif tersebut menyediakan \textbf{Data Lineage Graph} (Grafik Silsilah Data). Grafik ini menggambarkan visualisasi terarah dari ujung ke ujung (\textit{end-to-end}) mengenai bagaimana data mengalir: dimulai dari simpul sumber mentah (\textit{source nodes}) $\rightarrow$ dialirkan menuju simpul pementasan (\textit{staging nodes}) $\rightarrow$ dipetakan ke dalam simpul dimensi (\textit{dimension nodes}) $\rightarrow$ dan akhirnya bermuara pada tabel fakta akhir \texttt{fct\_kunjungan} di lapisan \textit{marts}. Grafik silsilah data ini menjamin transparansi penuh sehingga tim analis dapat melacak akar masalah dengan cepat jika ditemukan anomali data pada laporan visual.
+ 
+\begin{center}
+  \includegraphics[width=0.95\textwidth]{./figures/5-4_dbt_lineage_graph.png}
+  \captionof{figure}{Tampilan \textit{Data Lineage Graph} dbt Docs pada \textit{port} 8081.}
+  \label{fig:5.4.dbt_lineage}
+\end{center}
+ 
