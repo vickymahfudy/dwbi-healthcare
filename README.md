@@ -159,25 +159,30 @@ dwbi-healthcare/
 ## Tech Stack
 
 ### Data Generation
+
 - **Python 3.x** - Programming language
 - **Faker** - Synthetic data generation
 - **Pandas** - Data manipulation
 
 ### Orchestration
+
 - **Apache Airflow 2.10.2** - Workflow orchestration
 - **Docker & Docker Compose** - Containerization
 - **Celery** - Distributed task queue
 - **Redis** - Message broker
 
 ### Database
+
 - **PostgreSQL 13** - Data warehouse database
 - **psycopg2** - PostgreSQL adapter for Python
 
 ### Transformation
+
 - **dbt (Data Build Tool)** - Data transformation framework
 - **SQLAlchemy** - SQL toolkit
 
 ### Analytics & Visualization
+
 - **SQL** - Analytics queries
 - **Jupyter Notebook** - Interactive analysis
 - **Matplotlib & Seaborn** - Data visualization
@@ -255,11 +260,8 @@ Password: airflow
 ### Menjalankan Full Pipeline
 
 1. **Akses Airflow UI** di http://localhost:8000
-
 2. **Aktifkan DAG** `01_healthcare_data_pipeline`
-
 3. **Trigger DAG** secara manual dengan klik tombol "Play"
-
 4. **Monitor Eksekusi** - Pipeline akan menjalankan task berikut secara berurutan:
 
    ```
@@ -281,36 +283,43 @@ Password: airflow
 ### Detail Setiap Task
 
 #### Task 1: `run_data_generator`
+
 - Generate synthetic data menggunakan Faker
 - Output: 3 CSV files di `data_generator/output/`
 - Data: 10,000+ records untuk pasien, dokter, dan kunjungan
 
 #### Task 2: `ingest_csv_to_database`
+
 - Load CSV files ke PostgreSQL
 - Tabel: `src_pasien`, `src_dokter`, `src_kunjungan`
 - Mode: Truncate & Load (idempotent)
 
 #### Task 3: `auto_generate_dbt_files`
+
 - Download manifest dari GitHub
 - Auto-generate dbt model files
 - Create `sources.yml` otomatis
 
 #### Task 4: `dbt_run_transformation`
+
 - Execute dbt models
 - Build staging → dimensions → facts
 - Materialisasi Star Schema
 
 #### Task 5: `dbt_data_quality_test`
+
 - Run dbt tests
 - Validasi data quality & integrity
 - Check constraints & relationships
 
 #### Task 6: `dbt_generate_docs`
+
 - Generate dbt documentation
 - Create data lineage graph
 - Build catalog
 
 #### Task 7: `dbt_serve_docs`
+
 - Serve dbt docs di http://localhost:8081
 - Interactive documentation & lineage
 
@@ -463,17 +472,14 @@ dbt docs serve --port 8081 --target docker_env --profiles-dir .
    - Pembuatan dataset sintetik (10,000+ records)
    - Design skema source tables
    - Implementasi data ingestion
-
 2. **Vicky Mahfudy: Workflow & Orchestration Coordinator**
    - Setup Docker environment
    - Konfigurasi Apache Airflow
    - Implementasi DAG & error handling
-
 3. **Engelbertus Rande: Analytics Engineer (Data Modeling & dbt Developer)**
    - Design dimensional model (Star Schema)
    - Implementasi dbt transformations
    - Data quality testing
-
 4. **Gilbert Fandiliam Mooy: BI Developer & Data Quality Analyst**
    - Perumusan business questions
    - Implementasi analytics queries
@@ -493,6 +499,7 @@ lsof -i :5050  # PostgreSQL
 lsof -i :8081  # dbt docs
 
 # Kill process
+
 kill -9 <PID>
 ```
 
@@ -509,6 +516,7 @@ docker-compose up -d
 docker exec -it airflow-postgres-1 psql -U airflow
 
 # Drop tables
+
 DROP TABLE IF EXISTS src_pasien, src_dokter, src_kunjungan CASCADE;
 DROP TABLE IF EXISTS dim_pasien, dim_dokter, dim_fasilitas, dim_pembayaran, dim_waktu CASCADE;
 DROP TABLE IF EXISTS fact_kunjungan CASCADE;

@@ -34,10 +34,10 @@ Sebelum menjalankan proyek, pastikan laptop Anda telah menginstal:
 
 # 🚀 Langkah 1 — Menjalankan Environment Airflow & Database
 
-Buka Terminal / CMD lalu masuk ke folder proyek:
+Buka Terminal / CMD lalu masuk ke folder sub main (airflow):
 
 ```bash
-cd explore_00
+cd airflow
 ```
 
 ## 1. Menyalakan Container Docker

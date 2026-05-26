@@ -133,7 +133,7 @@ services:
         condition: service_healthy
     # Memberi nafas ekstra bagi Docker saat Metabase sedang booting berat
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "curl",:8080->8080/tcp "-f", "http://localhost:3000/api/health"]
       interval: 20s
       timeout: 10s
       retries: 5
