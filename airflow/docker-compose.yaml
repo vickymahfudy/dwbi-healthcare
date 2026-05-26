@@ -87,15 +87,15 @@ x-airflow-common:
       condition: service_healthy
 
 services:
-  metabase:
-    image: metabase/metabase:v0.49.3 
-    container_name: metabase_healthcare
-    ports:
-      - "3000:3000" 
-    environment:
-      - MB_JETTY_HOST=0.0.0.0
-      - MB_JETTY_PORT=3000
-    restart: always
+  # metabase:
+  #   image: metabase/metabase:v0.49.3 
+  #   container_name: metabase_healthcare
+  #   ports:
+  #     - "3000:3000" 
+  #   environment:
+  #     - MB_JETTY_HOST=0.0.0.0
+  #     - MB_JETTY_PORT=3000
+  #   restart: always
   postgres:
     image: postgres:13
     environment:
@@ -113,6 +113,32 @@ services:
       start_period: 5s
     restart: always
 
+  # Tambahan Service Metabase
+  metabase:
+    image: metabase/metabase:v0.49.12
+    container_name: metabase_app
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase_db
+      MB_DB_PORT: 5432
+      MB_DB_USER: airflow
+      MB_DB_PASS: airflow
+      MB_DB_HOST: postgres
+      # Berikan batas heap memory Java yang aman
+      JAVA_OPTS: "-Xms1024m -Xmx1500m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Memberi nafas ekstra bagi Docker saat Metabase sedang booting berat
+    healthcheck:
+      test: ["CMD", "curl",:8080->8080/tcp "-f", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 90s  # Docker akan mengabaikan kegagalan selama 90 detik pertama
+    restart: always
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/

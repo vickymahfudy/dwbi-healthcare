@@ -156,7 +156,7 @@ Berikut adalah visualisasi struktur direktori (\textit{directory tree}) dari pro
 Penjelasan fungsional dari berkas konfigurasi utama proyek adalah sebagai berikut:
  
 \begin{itemize}
-    \item \textbf{\texttt{dbt\_project.yml}:} Berkas konfigurasi pusat yang mendefinisikan nama proyek (\texttt{healthcare\_transformation}), versi, konfigurasi profil koneksi yang harus digunakan, serta aturan materialisasi (\textit{materialization}) global untuk masing-masing direktori \texttt{models}. Direktori \texttt{staging} dikonfigurasi sebagai \texttt{view} guna menghemat ruang penyimpanan, sedangkan direktori \texttt{dimensions} dan \texttt{marts} dimaterialisasikan sebagai \texttt{table} secara fisik untuk mengoptimalkan kecepatan \textit{query} analitik.
+    \item \textbf{\texttt{dbt\_project.yml}:} Berkas konfigurasi pusat yang mendefinisikan nama proyek (\texttt{healthcare\\\_transformation}), versi, konfigurasi profil koneksi yang harus digunakan, serta aturan materialisasi (\textit{materialization}) global untuk masing-masing direktori \texttt{models}. Direktori \texttt{staging} dikonfigurasi sebagai \texttt{view} guna menghemat ruang penyimpanan, sedangkan direktori \texttt{dimensions} dan \texttt{marts} dimaterialisasikan sebagai \texttt{table} secara fisik untuk mengoptimalkan kecepatan \textit{query} analitik.
  
     \item \textbf{\texttt{profiles.yml}:} Menyimpan detail teknis kredensial database PostgreSQL, termasuk alamat \textit{host} jaringan Docker (\texttt{postgres}), \textit{port} (5432), nama database (\texttt{airflow}), skema target (\texttt{public}), serta batasan jumlah \textit{threads} komputasi paralel yang diizinkan untuk mengeksekusi \textit{query} secara bersamaan.
 \end{itemize}
@@ -251,11 +251,11 @@ Arsitektur fisik yang dipilih untuk Data Mart ini adalah \textbf{Skema Bintang (
  
 Tabel Fakta (\texttt{fct\_kunjungan}) ditempatkan sebagai pusat dari arsitektur, mengumpulkan seluruh metrik kuantitatif transaksi medis. Tabel fakta ini dikelilingi oleh lima Tabel Dimensi sebagai penjelas konteks peristiwa, yang terikat melalui hubungan \textit{One-to-Many} (1:N) dengan integritas referensial yang ketat.
  
-\begin{center}
-  \includegraphics[width=0.95\textwidth]{./figures/5-4_erd_star_schema.png}
-  \captionof{figure}{Diagram ERD \textit{Star Schema} Final dari Database PostgreSQL.}
-  \label{fig:5.4.erd_star_schema}
-\end{center}
+% \begin{center}
+%   \includegraphics[width=0.95\textwidth]{./figures/5-4_erd_star_schema.png}
+%   \captionof{figure}{Diagram ERD \textit{Star Schema} Final dari Database PostgreSQL.}
+%   \label{fig:5.4.erd_star_schema}
+% \end{center}
  
 \subsubsection{Dokumentasi Tabel dan Kolom (Kamus Data)}
  
@@ -358,11 +358,11 @@ Kata Sandi (\textit{Password})   & \texttt{airflow} \\
  
 Setelah koneksi ini berhasil diverifikasi, BI Tools seperti Metabase, Apache Superset, Tableau, atau Power BI dapat langsung membaca seluruh daftar tabel \texttt{dim\_*} dan \texttt{fct\_kunjungan} untuk mulai menyusun grafik, diagram, serta dasbor pemantauan kinerja rumah sakit.
  
-\begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/5-5_bi_connection.png}
-  \captionof{figure}{Konfigurasi Koneksi Database pada BI Tools (Metabase/Superset).}
-  \label{fig:5.5.bi_connection}
-\end{center}
+% \begin{center}
+%   \includegraphics[width=0.85\textwidth]{./figures/5-5_bi_connection.png}
+%   \captionof{figure}{Konfigurasi Koneksi Database pada BI Tools (Metabase/Superset).}
+%   \label{fig:5.5.bi_connection}
+% \end{center}
  
 \subsubsection{Lapisan Semantik (\textit{Semantic Layer})}
  
