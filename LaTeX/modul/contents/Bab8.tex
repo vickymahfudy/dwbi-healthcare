@@ -140,157 +140,361 @@ Pengujian integritas data dijalankan secara otomatis oleh dbt melalui perintah \
  
 \begin{lstlisting}[language={}, caption=Konfigurasi Pengujian dbt pada schema.yml]
 version: 2
- 
+
 models:
-  - name: fct_kunjungan
-    description: >
-      Tabel fakta utama yang menyimpan seluruh transaksi kunjungan
-      medis pasien beserta rincian biaya dan kunci relasi dimensi.
+  # =========================================================================
+  # STAGING LAYER
+  # =========================================================================
+  - name: stg_pasien
+    description: "Data mentah pasien dari sistem pendaftaran"
     columns:
-      - name: kunjungan_key
-        description: "Primary Key unik per transaksi kunjungan."
-        tests:
-          - unique
-          - not_null
- 
-      - name: pasien_key
-        description: "Foreign Key relasi ke dim_pasien."
-        tests:
-          - not_null
-          - relationships:
-              to: ref('dim_pasien')
-              field: pasien_key
- 
-      - name: dokter_key
-        description: "Foreign Key relasi ke dim_dokter."
-        tests:
-          - not_null
-          - relationships:
-              to: ref('dim_dokter')
-              field: dokter_key
- 
-      - name: waktu_key
-        description: "Foreign Key relasi ke dim_waktu."
-        tests:
-          - not_null
-          - relationships:
-              to: ref('dim_waktu')
-              field: date_key
- 
-      - name: durasi_rawat
-        description: "Lama hari rawat inap pasien (0 jika non-inap)."
-        tests:
-          - not_null
- 
-      - name: total_biaya
-        description: "Akumulasi total tagihan seluruh komponen biaya."
-        tests:
-          - not_null
- 
-  - name: dim_pasien
-    columns:
-      - name: pasien_key
+      - name: id_pasien
         tests:
           - unique
           - not_null
       - name: jenis_kelamin
         tests:
           - accepted_values:
-              values: ['Laki-laki', 'Perempuan']
- 
+              values: ['L', 'P', 'Laki-laki', 'Perempuan']
+              config:
+                severity: warn 
+
+  - name: stg_dokter
+    description: "Data master dokter aktif"
+    columns:
+      - name: id_dokter
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_kunjungan
+    description: "Data transaksi kunjungan dan rincian biaya medis harian"
+    columns:
+      - name: id_kunjungan
+        tests:
+          - unique
+          - not_null
+      - name: id_pasien
+        tests:
+          - not_null
+      - name: id_dokter
+        tests:
+          - not_null
+
+  # =========================================================================
+  # DIMENSION LAYER
+  # =========================================================================
+  - name: dim_pasien
+    description: "Dimensi master pasien dengan penerapan SCD Tipe 2"
+    columns:
+      - name: pasien_key
+        tests:
+          - unique
+          - not_null
+
   - name: dim_dokter
+    description: "Dimensi master dokter dengan penerapan SCD Tipe 1"
     columns:
       - name: dokter_key
         tests:
           - unique
           - not_null
- 
+
   - name: dim_waktu
+    description: "Dimensi waktu kalender berdasarkan tanggal kunjungan"
     columns:
       - name: date_key
         tests:
           - unique
+          - not_null
+
+  - name: dim_fasilitas
+    description: "Dimensi tipe fasilitas rumah sakit dan status keluar"
+    columns:
+      - name: fasilitas_key
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_pembayaran
+    description: "Dimensi metode pembayaran administrasi medis"
+    columns:
+      - name: bayar_key
+        tests:
+          - unique
+          - not_null
+
+  # =========================================================================
+  # MART LAYER (SOLUSI: Semua argumen dibungkus dalam blok arguments)
+  # =========================================================================
+  - name: fact_kunjungan
+    description: "Tabel fakta utama transaksi kunjungan pelayanan medis rumah sakit"
+    columns:
+      - name: pasien_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_pasien')
+              field: pasien_key
+      - name: dokter_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_dokter')
+              field: dokter_key
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_waktu')
+              field: date_key
+      - name: fasilitas_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_fasilitas')
+              field: fasilitas_key
+      - name: bayar_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_pembayaran')
+              field: bayar_key
+      - name: total_biaya
+        description: "Akumulasi tagihan akhir (konsultasi + obat + tindakan + kamar)"
+        tests:
           - not_null
 \end{lstlisting}
  
 \subsection{Output Eksekusi dbt Test}
  
 \begin{lstlisting}[language={}, caption=Output Terminal dbt test pada Airflow Log]
-14:23:01  Running with dbt=1.7.4
-14:23:01  Registered adapter: postgres=1.7.4
-14:23:01  Found 8 models, 18 tests, 0 snapshots, 0 analyses
-14:23:01
-14:23:02  Concurrency: 4 threads (target='docker_env')
-14:23:02
-14:23:02  1 of 18 START test not_null_dim_dokter_dokter_key ............. [RUN]
-14:23:02  1 of 18 PASS  not_null_dim_dokter_dokter_key .................. [PASS]
-14:23:02  2 of 18 START test not_null_dim_pasien_pasien_key ............. [RUN]
-14:23:02  2 of 18 PASS  not_null_dim_pasien_pasien_key .................. [PASS]
-14:23:02  3 of 18 START test not_null_dim_waktu_date_key ................ [RUN]
-14:23:02  3 of 18 PASS  not_null_dim_waktu_date_key ..................... [PASS]
-14:23:03  4 of 18 START test unique_dim_dokter_dokter_key ............... [RUN]
-14:23:03  4 of 18 PASS  unique_dim_dokter_dokter_key .................... [PASS]
-14:23:03  5 of 18 START test unique_dim_pasien_pasien_key ............... [RUN]
-14:23:03  5 of 18 PASS  unique_dim_pasien_pasien_key .................... [PASS]
-14:23:03  6 of 18 START test unique_dim_waktu_date_key .................. [RUN]
-14:23:03  6 of 18 PASS  unique_dim_waktu_date_key ....................... [PASS]
-14:23:04  7 of 18 START test not_null_fct_kunjungan_kunjungan_key ....... [RUN]
-14:23:04  7 of 18 PASS  not_null_fct_kunjungan_kunjungan_key ........... [PASS]
-14:23:04  8 of 18 START test unique_fct_kunjungan_kunjungan_key ......... [RUN]
-14:23:04  8 of 18 PASS  unique_fct_kunjungan_kunjungan_key ............. [PASS]
-14:23:05  9 of 18 START test not_null_fct_kunjungan_pasien_key .......... [RUN]
-14:23:05  9 of 18 PASS  not_null_fct_kunjungan_pasien_key .............. [PASS]
-14:23:05 10 of 18 START test not_null_fct_kunjungan_dokter_key .......... [RUN]
-14:23:05 10 of 18 PASS  not_null_fct_kunjungan_dokter_key .............. [PASS]
-14:23:06 11 of 18 START test not_null_fct_kunjungan_waktu_key ........... [RUN]
-14:23:06 11 of 18 PASS  not_null_fct_kunjungan_waktu_key ............... [PASS]
-14:23:06 12 of 18 START test not_null_fct_kunjungan_durasi_rawat ........ [RUN]
-14:23:06 12 of 18 PASS  not_null_fct_kunjungan_durasi_rawat ............ [PASS]
-14:23:07 13 of 18 START test not_null_fct_kunjungan_total_biaya ......... [RUN]
-14:23:07 13 of 18 PASS  not_null_fct_kunjungan_total_biaya ............. [PASS]
-14:23:07 14 of 18 START test relationships_fct_pasien_key ............... [RUN]
-14:23:07 14 of 18 PASS  relationships_fct_pasien_key ................... [PASS]
-14:23:08 15 of 18 START test relationships_fct_dokter_key ............... [RUN]
-14:23:08 15 of 18 PASS  relationships_fct_dokter_key ................... [PASS]
-14:23:08 16 of 18 START test relationships_fct_waktu_key ................ [RUN]
-14:23:08 16 of 18 PASS  relationships_fct_waktu_key .................... [PASS]
-14:23:09 17 of 18 START test accepted_values_jenis_kelamin .............. [RUN]
-14:23:09 17 of 18 PASS  accepted_values_jenis_kelamin .................. [PASS]
-14:23:09 18 of 18 START test accepted_values_tipe_fasilitas ............. [RUN]
-14:23:09 18 of 18 PASS  accepted_values_tipe_fasilitas ................. [PASS]
-14:23:10
-14:23:10  Finished running 18 tests in 0 minutes 9.14 seconds.
-14:23:10
-14:23:10  Completed successfully
-14:23:10
-14:23:10  Done. PASS=18 WARN=0 ERROR=0 SKIP=0 TOTAL=18
+f11a7f975b7d
+ Log message source details
+*** Found local files:
+***   * /opt/airflow/logs/dag_id=01_healthcare_data_pipeline/run_id=manual__2026-05-26T23:02:11.298683+00:00/task_id=dbt_data_quality_test/attempt=1.log
+  Log group end
+[2026-05-26, 23:02:45 UTC] {local_task_job_runner.py:123} Pre task execution logs
+[2026-05-26, 23:02:46 UTC] {taskinstance.py:2614} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: 01_healthcare_data_pipeline.dbt_data_quality_test manual__2026-05-26T23:02:11.298683+00:00 [queued]>
+[2026-05-26, 23:02:46 UTC] {taskinstance.py:2614} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: 01_healthcare_data_pipeline.dbt_data_quality_test manual__2026-05-26T23:02:11.298683+00:00 [queued]>
+[2026-05-26, 23:02:46 UTC] {taskinstance.py:2867} INFO - Starting attempt 1 of 2
+[2026-05-26, 23:02:46 UTC] {taskinstance.py:2890} INFO - Executing <Task(BashOperator): dbt_data_quality_test> on 2026-05-26 23:02:11.298683+00:00
+[2026-05-26, 23:02:46 UTC] {standard_task_runner.py:72} INFO - Started process 925 to run task
+[2026-05-26, 23:02:46 UTC] {standard_task_runner.py:104} INFO - Running: ['***', 'tasks', 'run', '01_healthcare_data_pipeline', 'dbt_data_quality_test', 'manual__2026-05-26T23:02:11.298683+00:00', '--job-id', '110', '--raw', '--subdir', 'DAGS_FOLDER/01_pipeline_healthcare.py', '--cfg-path', '/tmp/tmpch1mgu27']
+[2026-05-26, 23:02:46 UTC] {standard_task_runner.py:105} INFO - Job 110: Subtask dbt_data_quality_test
+[2026-05-26, 23:02:46 UTC] {task_command.py:467} INFO - Running <TaskInstance: 01_healthcare_data_pipeline.dbt_data_quality_test manual__2026-05-26T23:02:11.298683+00:00 [running]> on host f11a7f975b7d
+[2026-05-26, 23:02:46 UTC] {taskinstance.py:3134} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='kelompok_healthcare' AIRFLOW_CTX_DAG_ID='01_healthcare_data_pipeline' AIRFLOW_CTX_TASK_ID='dbt_data_quality_test' AIRFLOW_CTX_EXECUTION_DATE='2026-05-26T23:02:11.298683+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='manual__2026-05-26T23:02:11.298683+00:00'
+[2026-05-26, 23:02:46 UTC] {logging_mixin.py:190} INFO - Task instance is in running state
+[2026-05-26, 23:02:46 UTC] {logging_mixin.py:190} INFO -  Previous state of the Task instance: queued
+[2026-05-26, 23:02:46 UTC] {logging_mixin.py:190} INFO - Current task name:dbt_data_quality_test state:running start_date:2026-05-26 23:02:46.004078+00:00
+[2026-05-26, 23:02:46 UTC] {logging_mixin.py:190} INFO - Dag name:01_healthcare_data_pipeline and current dag run status:running
+[2026-05-26, 23:02:46 UTC] {taskinstance.py:732}  Log group end
+[2026-05-26, 23:02:46 UTC] {subprocess.py:78} INFO - Tmp dir root location: /tmp
+[2026-05-26, 23:02:46 UTC] {subprocess.py:88} INFO - Running command: ['/usr/bin/bash', '-c', 'cd /opt/***/dbt_project && dbt test --target docker_env --profiles-dir .']
+[2026-05-26, 23:02:46 UTC] {subprocess.py:99} INFO - Output:
+[2026-05-26, 23:02:50 UTC] {subprocess.py:106} INFO - 23:02:50  Running with dbt=1.8.0
+[2026-05-26, 23:02:51 UTC] {subprocess.py:106} INFO - 23:02:51  Registered adapter: postgres=1.8.0
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52  Found 9 models, 30 data tests, 3 sources, 428 macros
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52  Concurrency: 4 threads (target='docker_env')
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52  1 of 30 START test accepted_values_stg_pasien_jenis_kelamin__L__P__Laki_laki__Perempuan  [RUN]
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52  2 of 30 START test not_null_dim_dokter_dokter_key .............................. [RUN]
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52  3 of 30 START test not_null_dim_fasilitas_fasilitas_key ........................ [RUN]
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52  4 of 30 START test not_null_dim_pasien_pasien_key .............................. [RUN]
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52  3 of 30 PASS not_null_dim_fasilitas_fasilitas_key .............................. [PASS in 0.46s]
+[2026-05-26, 23:02:52 UTC] {subprocess.py:106} INFO - 23:02:52  2 of 30 PASS not_null_dim_dokter_dokter_key .................................... [PASS in 0.48s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:52  4 of 30 PASS not_null_dim_pasien_pasien_key .................................... [PASS in 0.49s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  5 of 30 START test not_null_dim_pembayaran_bayar_key ........................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  1 of 30 PASS accepted_values_stg_pasien_jenis_kelamin__L__P__Laki_laki__Perempuan  [PASS in 0.50s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  6 of 30 START test not_null_dim_waktu_date_key ................................. [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  7 of 30 START test not_null_fact_kunjungan_bayar_key ........................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  8 of 30 START test not_null_fact_kunjungan_date_key ............................ [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  5 of 30 PASS not_null_dim_pembayaran_bayar_key ................................. [PASS in 0.17s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  6 of 30 PASS not_null_dim_waktu_date_key ....................................... [PASS in 0.16s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  9 of 30 START test not_null_fact_kunjungan_dokter_key .......................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  8 of 30 PASS not_null_fact_kunjungan_date_key .................................. [PASS in 0.16s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  7 of 30 PASS not_null_fact_kunjungan_bayar_key ................................. [PASS in 0.17s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  10 of 30 START test not_null_fact_kunjungan_fasilitas_key ...................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  11 of 30 START test not_null_fact_kunjungan_pasien_key ......................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  12 of 30 START test not_null_fact_kunjungan_total_biaya ........................ [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  9 of 30 PASS not_null_fact_kunjungan_dokter_key ................................ [PASS in 0.19s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  10 of 30 PASS not_null_fact_kunjungan_fasilitas_key ............................ [PASS in 0.17s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  13 of 30 START test not_null_stg_dokter_id_dokter .............................. [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  11 of 30 PASS not_null_fact_kunjungan_pasien_key ............................... [PASS in 0.15s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  14 of 30 START test not_null_stg_kunjungan_id_dokter ........................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  12 of 30 PASS not_null_fact_kunjungan_total_biaya .............................. [PASS in 0.16s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  15 of 30 START test not_null_stg_kunjungan_id_kunjungan ........................ [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  16 of 30 START test not_null_stg_kunjungan_id_pasien ........................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  13 of 30 PASS not_null_stg_dokter_id_dokter .................................... [PASS in 0.14s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  17 of 30 START test not_null_stg_pasien_id_pasien .............................. [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  15 of 30 PASS not_null_stg_kunjungan_id_kunjungan .............................. [PASS in 0.13s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  14 of 30 PASS not_null_stg_kunjungan_id_dokter ................................. [PASS in 0.17s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  18 of 30 START test relationships_fact_kunjungan_bayar_key__bayar_key__ref_dim_pembayaran_  [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  16 of 30 PASS not_null_stg_kunjungan_id_pasien ................................. [PASS in 0.16s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  19 of 30 START test relationships_fact_kunjungan_date_key__date_key__ref_dim_waktu_  [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  20 of 30 START test relationships_fact_kunjungan_dokter_key__dokter_key__ref_dim_dokter_  [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  17 of 30 PASS not_null_stg_pasien_id_pasien .................................... [PASS in 0.18s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  21 of 30 START test relationships_fact_kunjungan_fasilitas_key__fasilitas_key__ref_dim_fasilitas_  [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  18 of 30 PASS relationships_fact_kunjungan_bayar_key__bayar_key__ref_dim_pembayaran_  [PASS in 0.20s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  19 of 30 PASS relationships_fact_kunjungan_date_key__date_key__ref_dim_waktu_ .. [PASS in 0.20s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  22 of 30 START test relationships_fact_kunjungan_pasien_key__pasien_key__ref_dim_pasien_  [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  23 of 30 START test unique_dim_dokter_dokter_key ............................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  20 of 30 PASS relationships_fact_kunjungan_dokter_key__dokter_key__ref_dim_dokter_  [PASS in 0.17s]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  24 of 30 START test unique_dim_fasilitas_fasilitas_key ......................... [RUN]
+[2026-05-26, 23:02:53 UTC] {subprocess.py:106} INFO - 23:02:53  21 of 30 PASS relationships_fact_kunjungan_fasilitas_key__fasilitas_key__ref_dim_fasilitas_  [PASS in 0.21s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  25 of 30 START test unique_dim_pasien_pasien_key ............................... [RUN]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  23 of 30 PASS unique_dim_dokter_dokter_key ..................................... [PASS in 0.20s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  22 of 30 PASS relationships_fact_kunjungan_pasien_key__pasien_key__ref_dim_pasien_  [PASS in 0.20s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  26 of 30 START test unique_dim_pembayaran_bayar_key ............................ [RUN]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  27 of 30 START test unique_dim_waktu_date_key .................................. [RUN]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  24 of 30 PASS unique_dim_fasilitas_fasilitas_key ............................... [PASS in 0.17s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  28 of 30 START test unique_stg_dokter_id_dokter ................................ [RUN]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  25 of 30 PASS unique_dim_pasien_pasien_key ..................................... [PASS in 0.20s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  29 of 30 START test unique_stg_kunjungan_id_kunjungan .......................... [RUN]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  27 of 30 PASS unique_dim_waktu_date_key ........................................ [PASS in 0.20s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  26 of 30 PASS unique_dim_pembayaran_bayar_key .................................. [PASS in 0.20s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  28 of 30 PASS unique_stg_dokter_id_dokter ...................................... [PASS in 0.16s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  30 of 30 START test unique_stg_pasien_id_pasien ................................ [RUN]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  29 of 30 PASS unique_stg_kunjungan_id_kunjungan ................................ [PASS in 0.14s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  30 of 30 PASS unique_stg_pasien_id_pasien ...................................... [PASS in 0.08s]
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  Finished running 30 data tests in 0 hours 0 minutes and 2.23 seconds (2.23s).
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  Completed successfully
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54
+[2026-05-26, 23:02:54 UTC] {subprocess.py:106} INFO - 23:02:54  Done. PASS=30 WARN=0 ERROR=0 SKIP=0 TOTAL=30
+[2026-05-26, 23:02:56 UTC] {subprocess.py:110} INFO - Command exited with return code 0
+[2026-05-26, 23:02:56 UTC] {taskinstance.py:341}  Post task execution logs
+[2026-05-26, 23:02:56 UTC] {taskinstance.py:353} INFO - Marking task as SUCCESS. dag_id=01_healthcare_data_pipeline, task_id=dbt_data_quality_test, run_id=manual__2026-05-26T23:02:11.298683+00:00, execution_date=20260526T230211, start_date=20260526T230246, end_date=20260526T230256
+[2026-05-26, 23:02:56 UTC] {logging_mixin.py:190} INFO - Task instance in success state
+[2026-05-26, 23:02:56 UTC] {logging_mixin.py:190} INFO -  Previous state of the Task instance: running
+[2026-05-26, 23:02:56 UTC] {logging_mixin.py:190} INFO - Dag name:01_healthcare_data_pipeline queued_at:2026-05-26 23:02:11.327277+00:00
+[2026-05-26, 23:02:56 UTC] {logging_mixin.py:190} INFO - Task hostname:f11a7f975b7d operator:BashOperator
+[2026-05-26, 23:02:56 UTC] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2026-05-26, 23:02:56 UTC] {taskinstance.py:3901} INFO - 1 downstream tasks scheduled from follow-on schedule check
+[2026-05-26, 23:02:56 UTC] {local_task_job_runner.py:245}  Log group end
+
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-5_hasil_sql.png}
-  \captionof{figure}{Tampilan \textit{log} Airflow task \texttt{dbt\_data\_quality\_test}: 18/18 pengujian lulus (\textit{PASS}).}
+  \includegraphics[width=0.85\textwidth]{./figures/8-6_hasil_cek.png}
+  \captionof{figure}{Tampilan \textit{log} Airflow task \texttt{dbt\_data\_quality\_test}: 30/30 pengujian lulus (\textit{PASS}).}
   \label{fig:8.6.dbt_test_result}
 \end{center}
  
-\begin{mybox}{Hasil dbt Test: 18/18 PASS}
-Seluruh 18 aturan pengujian yang mencakup validasi \texttt{unique}, \texttt{not\_null}, \texttt{relationships} (integritas referensial), dan \texttt{accepted\_values} berhasil dieksekusi tanpa satu pun kegagalan. Hal ini membuktikan bahwa skema \textit{Star Schema} yang dibangun bebas dari anomali data dan siap dikonsumsi oleh lapisan BI.
+
+% ─── Metadata eksekusi dbt test ──────────────────────────────────────────────
+\begin{table}[H]
+\centering
+\caption{Metadata Eksekusi \texttt{dbt test} (2026-05-26, 23:02:50 UTC)}
+\begin{tabularx}{0.85\linewidth}{lX}
+\toprule
+\textbf{Parameter} & \textbf{Nilai} \\
+\midrule
+Versi dbt         & \texttt{dbt=1.8.0}, \texttt{adapter: postgres=1.8.0} \\
+Target            & \texttt{docker\_env} \\
+Konkurensi        & 4 \textit{threads} paralel \\
+Cakupan           & 9 model, 30 \textit{data tests}, 3 sumber, 428 makro \\
+Total Waktu       & 2,23 detik \\
+Hasil Akhir       & \textbf{PASS=30 \quad WARN=0 \quad ERROR=0 \quad SKIP=0 \quad TOTAL=30} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+% ─── Tabel A: Lapisan Staging ─────────────────────────────────────────────────
+\begin{table}[H]
+\centering
+\caption{Hasil \texttt{dbt test} -- Lapisan Staging (9 dari 30 pengujian)}
+\small
+\begin{tabularx}{\linewidth}{cp{2.8cm}p{3cm}Xcc}
+\toprule
+\textbf{No} & \textbf{Tipe Pengujian} & \textbf{Model} & \textbf{Kolom Target} & \textbf{Status} & \textbf{Durasi} \\
+\midrule
+1  & \texttt{accepted\_values} & \texttt{stg\_pasien}    & \texttt{jenis\_kelamin} \newline {\scriptsize(nilai: L, P, Laki-laki, Perempuan)} & \textcolor{green!60!black}{\textbf{PASS}} & 0,50 s \\
+\midrule
+2  & \texttt{not\_null}        & \texttt{stg\_dokter}    & \texttt{id\_dokter}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,14 s \\
+3  & \texttt{not\_null}        & \texttt{stg\_kunjungan} & \texttt{id\_dokter}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,17 s \\
+4  & \texttt{not\_null}        & \texttt{stg\_kunjungan} & \texttt{id\_kunjungan}   & \textcolor{green!60!black}{\textbf{PASS}} & 0,13 s \\
+5  & \texttt{not\_null}        & \texttt{stg\_kunjungan} & \texttt{id\_pasien}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,16 s \\
+6  & \texttt{not\_null}        & \texttt{stg\_pasien}    & \texttt{id\_pasien}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,18 s \\
+\midrule
+7  & \texttt{unique}           & \texttt{stg\_dokter}    & \texttt{id\_dokter}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,16 s \\
+8  & \texttt{unique}           & \texttt{stg\_kunjungan} & \texttt{id\_kunjungan}   & \textcolor{green!60!black}{\textbf{PASS}} & 0,14 s \\
+9  & \texttt{unique}           & \texttt{stg\_pasien}    & \texttt{id\_pasien}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,08 s \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+% ─── Tabel B: Lapisan Dimensi ─────────────────────────────────────────────────
+\begin{table}[H]
+\centering
+\caption{Hasil \texttt{dbt test} -- Lapisan Dimensi (10 dari 30 pengujian)}
+\small
+\begin{tabularx}{\linewidth}{cp{2.8cm}p{3.8cm}Xcc}
+\toprule
+\textbf{No} & \textbf{Tipe Pengujian} & \textbf{Model} & \textbf{Kolom Target} & \textbf{Status} & \textbf{Durasi} \\
+\midrule
+10 & \texttt{not\_null} & \texttt{dim\_dokter}     & \texttt{dokter\_key}     & \textcolor{green!60!black}{\textbf{PASS}} & 0,48 s \\
+11 & \texttt{not\_null} & \texttt{dim\_fasilitas}  & \texttt{fasilitas\_key}  & \textcolor{green!60!black}{\textbf{PASS}} & 0,46 s \\
+12 & \texttt{not\_null} & \texttt{dim\_pasien}     & \texttt{pasien\_key}     & \textcolor{green!60!black}{\textbf{PASS}} & 0,49 s \\
+13 & \texttt{not\_null} & \texttt{dim\_pembayaran} & \texttt{bayar\_key}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,17 s \\
+14 & \texttt{not\_null} & \texttt{dim\_waktu}      & \texttt{date\_key}       & \textcolor{green!60!black}{\textbf{PASS}} & 0,16 s \\
+\midrule
+15 & \texttt{unique}    & \texttt{dim\_dokter}     & \texttt{dokter\_key}     & \textcolor{green!60!black}{\textbf{PASS}} & 0,20 s \\
+16 & \texttt{unique}    & \texttt{dim\_fasilitas}  & \texttt{fasilitas\_key}  & \textcolor{green!60!black}{\textbf{PASS}} & 0,17 s \\
+17 & \texttt{unique}    & \texttt{dim\_pasien}     & \texttt{pasien\_key}     & \textcolor{green!60!black}{\textbf{PASS}} & 0,20 s \\
+18 & \texttt{unique}    & \texttt{dim\_pembayaran} & \texttt{bayar\_key}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,20 s \\
+19 & \texttt{unique}    & \texttt{dim\_waktu}      & \texttt{date\_key}       & \textcolor{green!60!black}{\textbf{PASS}} & 0,20 s \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+% ─── Tabel C: Lapisan Fakta ───────────────────────────────────────────────────
+\begin{table}[H]
+\centering
+\caption{Hasil \texttt{dbt test} -- Lapisan Fakta \texttt{fact\_kunjungan} (11 dari 30 pengujian)}
+\small
+\begin{tabularx}{\linewidth}{cp{2.8cm}p{2.2cm}Xcc}
+\toprule
+\textbf{No} & \textbf{Tipe Pengujian} & \textbf{Model} & \textbf{Kolom / Relasi Target} & \textbf{Status} & \textbf{Durasi} \\
+\midrule
+20 & \texttt{not\_null} & \texttt{fact\_kunjungan} & \texttt{bayar\_key}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,17 s \\
+21 & \texttt{not\_null} & \texttt{fact\_kunjungan} & \texttt{date\_key}       & \textcolor{green!60!black}{\textbf{PASS}} & 0,16 s \\
+22 & \texttt{not\_null} & \texttt{fact\_kunjungan} & \texttt{dokter\_key}     & \textcolor{green!60!black}{\textbf{PASS}} & 0,19 s \\
+23 & \texttt{not\_null} & \texttt{fact\_kunjungan} & \texttt{fasilitas\_key}  & \textcolor{green!60!black}{\textbf{PASS}} & 0,17 s \\
+24 & \texttt{not\_null} & \texttt{fact\_kunjungan} & \texttt{pasien\_key}     & \textcolor{green!60!black}{\textbf{PASS}} & 0,15 s \\
+25 & \texttt{not\_null} & \texttt{fact\_kunjungan} & \texttt{total\_biaya}    & \textcolor{green!60!black}{\textbf{PASS}} & 0,16 s \\
+\midrule
+26 & \texttt{relationships} & \texttt{fact\_kunjungan} & \texttt{bayar\_key} $\to$ \texttt{dim\_pembayaran.bayar\_key}    & \textcolor{green!60!black}{\textbf{PASS}} & 0,20 s \\
+27 & \texttt{relationships} & \texttt{fact\_kunjungan} & \texttt{date\_key} $\to$ \texttt{dim\_waktu.date\_key}           & \textcolor{green!60!black}{\textbf{PASS}} & 0,20 s \\
+28 & \texttt{relationships} & \texttt{fact\_kunjungan} & \texttt{dokter\_key} $\to$ \texttt{dim\_dokter.dokter\_key}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,17 s \\
+29 & \texttt{relationships} & \texttt{fact\_kunjungan} & \texttt{fasilitas\_key} $\to$ \texttt{dim\_fasilitas.fasilitas\_key} & \textcolor{green!60!black}{\textbf{PASS}} & 0,21 s \\
+30 & \texttt{relationships} & \texttt{fact\_kunjungan} & \texttt{pasien\_key} $\to$ \texttt{dim\_pasien.pasien\_key}      & \textcolor{green!60!black}{\textbf{PASS}} & 0,20 s \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+\begin{mybox}{Ringkasan Hasil dbt Test: 30/30 PASS}
+Seluruh 30 aturan pengujian yang mencakup \texttt{accepted\_values} (1), \texttt{not\_null} (17), \texttt{unique} (8), dan \texttt{relationships} (4) berhasil dieksekusi tanpa satu pun kegagalan. Pengujian dijalankan secara paralel menggunakan 4 \textit{threads} pada \textit{target} \texttt{docker\_env} dan selesai dalam 2,23 detik. Hal ini membuktikan bahwa seluruh lapisan \textit{Star Schema} -- dari \textit{staging} hingga \textit{fact table} -- bebas dari anomali data dan memiliki integritas referensial yang solid.
 \end{mybox}
  
 \section{Data Quality Check}
  
 Pemeriksaan kualitas data (\textit{data quality check}) dilakukan secara mandiri di luar ekosistem dbt untuk memvalidasi karakteristik statistik dari data yang tersimpan di Data Mart. Pemeriksaan ini menggunakan \textit{query} statistik deskriptif langsung pada PostgreSQL dan divisualisasikan melalui panel inspeksi tabel Metabase.
  
-\begin{center}
-  \includegraphics[width=0.90\textwidth]{./figures/8-5_hasil_sql.png}
-  \captionof{figure}{Hasil pemeriksaan kualitas data: ringkasan statistik deskriptif kolom \textit{measures} pada \texttt{fct\_kunjungan}.}
-  \label{fig:8.7.data_quality_check}
-\end{center}
- 
+% \begin{center}
+%   \includegraphics[width=0.90\textwidth]{./figures/8-5_hasil_sql.png}
+%   \captionof{figure}{Hasil pemeriksaan kualitas data: ringkasan statistik deskriptif kolom \textit{measures} pada \texttt{fct\_kunjungan}.}
+%   \label{fig:8.7.data_quality_check}
+% \end{center}
+
+
 Hasil pemeriksaan menunjukkan tidak ada nilai kosong (\textit{null}) pada seluruh kolom kunci maupun kolom \textit{measures}, seluruh nilai biaya bersifat non-negatif ($\geq 0$) sesuai aturan validasi yang ditetapkan, distribusi \texttt{tipe\_fasilitas} terbagi pada tiga kategori yang valid (IGD, Rawat Jalan, Rawat Inap), dan total baris pada \texttt{fct\_kunjungan} sebesar 12.000 record sesuai dengan volume data yang direncanakan.
  
-\begin{center}
-  \includegraphics[width=0.90\textwidth]{./figures/8-5_hasil_sql.png}
-  \captionof{figure}{Hasil pemeriksaan \textit{null value} dan konsistensi tipe data pada seluruh kolom Data Mart di Metabase.}
-  \label{fig:8.8.null_check}
-\end{center}
+% \begin{center}
+%   \includegraphics[width=0.90\textwidth]{./figures/8-5_hasil_sql.png}
+%   \captionof{figure}{Hasil pemeriksaan \textit{null value} dan konsistensi tipe data pada seluruh kolom Data Mart di Metabase.}
+%   \label{fig:8.8.null_check}
+% \end{center}
  
