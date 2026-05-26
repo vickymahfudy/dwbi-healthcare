@@ -4,7 +4,7 @@
  
 \chapter{Verifikasi dan Validasi}
  
-Tahap verifikasi dan validasi bertujuan untuk memastikan bahwa sistem Data Warehouse yang telah dibangun berfungsi secara akurat, menghasilkan nilai metrik yang konsisten, serta memenuhi standar kualitas data yang dipersyaratkan. Validasi dilakukan melalui tiga mekanisme independen: (1) eksekusi \textit{query} analitik langsung terhadap Data Mart, (2) pengujian integritas otomatis melalui \texttt{dbt test}, dan (3) pemeriksaan kualitas data (\textit{data quality check}) berbasis statistik deskriptif.
+Tahap verifikasi dan validasi bertujuan untuk memastikan bahwa sistem Data Warehouse yang telah dibangun berfungsi secara akurat, menghasilkan nilai metrik yang konsisten, serta memenuhi standar kualitas data yang dipersyaratkan. Validasi dilakukan melalui tiga mekanisme independen: eksekusi \textit{query} analitik langsung terhadap Data Mart, pengujian integritas otomatis melalui \texttt{dbt test}, dan pemeriksaan kualitas data (\textit{data quality check}) berbasis statistik deskriptif.
  
 \section{Query Analitik terhadap Data Mart}
  
@@ -27,7 +27,7 @@ ORDER BY total_pendapatan DESC;
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-1_query_pendapatan_fasilitas.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-1_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-01: distribusi total pendapatan berdasarkan tipe fasilitas.}
   \label{fig:8.1.query_pendapatan_fasilitas}
 \end{center}
@@ -38,20 +38,19 @@ ORDER BY total_pendapatan DESC;
  
 \begin{lstlisting}[language=SQL, caption=Query Analitik BQ-11: Top 5 Dokter berdasarkan Volume Transaksi]
 SELECT
-    d.nama_dokter,
     d.spesialisasi,
     COUNT(fk.kunjungan_key)         AS total_kunjungan,
     SUM(fk.total_biaya)             AS total_pendapatan,
     ROUND(AVG(fk.biaya_konsultasi), 2) AS rata_rata_biaya_konsultasi
 FROM fct_kunjungan fk
 JOIN dim_dokter d ON fk.dokter_key = d.dokter_key
-GROUP BY d.nama_dokter, d.spesialisasi
+GROUP BY d.spesialisasi
 ORDER BY total_kunjungan DESC
 LIMIT 5;
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-2_query_top5_dokter.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-2_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-11: peringkat lima dokter dengan volume transaksi tertinggi.}
   \label{fig:8.2.query_top5_dokter}
 \end{center}
@@ -76,7 +75,7 @@ ORDER BY avg_los_hari DESC;
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-3_query_los_biaya.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-3_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-04: rata-rata \textit{Length of Stay} dan korelasi dengan total biaya per tipe fasilitas.}
   \label{fig:8.3.query_los_biaya}
 \end{center}
@@ -101,7 +100,7 @@ ORDER BY total_klaim DESC;
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-4_query_metode_pembayaran.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-4_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-03: distribusi dan proporsi metode pembayaran terhadap total pendapatan.}
   \label{fig:8.4.query_metode_pembayaran}
 \end{center}
@@ -127,7 +126,7 @@ ORDER BY w.tahun ASC, w.bulan ASC;
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-5_query_tren_bulanan.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-5_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-05: tren bulanan volume kunjungan dan pendapatan sepanjang 2025 hingga awal 2026.}
   \label{fig:8.5.query_tren_bulanan}
 \end{center}
@@ -135,7 +134,7 @@ ORDER BY w.tahun ASC, w.bulan ASC;
 \section{Hasil dbt Test}
  
 Pengujian integritas data dijalankan secara otomatis oleh dbt melalui perintah \texttt{dbt test} yang telah dikonfigurasi pada \textit{pipeline} Airflow sebagai \textit{task} \texttt{dbt\_data\_quality\_test}. Aturan pengujian didefinisikan pada berkas \texttt{schema.yml} di dalam direktori \texttt{models/marts/}.
- 
+\clearpage 
 \subsection{Konfigurasi Pengujian (schema.yml)}
  
 \begin{lstlisting}[language={}, caption=Konfigurasi Pengujian dbt pada schema.yml]
@@ -267,7 +266,7 @@ models:
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-6_dbt_test_result.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-5_hasil_sql.png}
   \captionof{figure}{Tampilan \textit{log} Airflow task \texttt{dbt\_data\_quality\_test}: 18/18 pengujian lulus (\textit{PASS}).}
   \label{fig:8.6.dbt_test_result}
 \end{center}
@@ -281,7 +280,7 @@ Seluruh 18 aturan pengujian yang mencakup validasi \texttt{unique}, \texttt{not\
 Pemeriksaan kualitas data (\textit{data quality check}) dilakukan secara mandiri di luar ekosistem dbt untuk memvalidasi karakteristik statistik dari data yang tersimpan di Data Mart. Pemeriksaan ini menggunakan \textit{query} statistik deskriptif langsung pada PostgreSQL dan divisualisasikan melalui panel inspeksi tabel Metabase.
  
 \begin{center}
-  \includegraphics[width=0.90\textwidth]{./figures/8-7_data_quality_check.png}
+  \includegraphics[width=0.90\textwidth]{./figures/8-5_hasil_sql.png}
   \captionof{figure}{Hasil pemeriksaan kualitas data: ringkasan statistik deskriptif kolom \textit{measures} pada \texttt{fct\_kunjungan}.}
   \label{fig:8.7.data_quality_check}
 \end{center}
@@ -289,7 +288,7 @@ Pemeriksaan kualitas data (\textit{data quality check}) dilakukan secara mandiri
 Hasil pemeriksaan menunjukkan tidak ada nilai kosong (\textit{null}) pada seluruh kolom kunci maupun kolom \textit{measures}, seluruh nilai biaya bersifat non-negatif ($\geq 0$) sesuai aturan validasi yang ditetapkan, distribusi \texttt{tipe\_fasilitas} terbagi pada tiga kategori yang valid (IGD, Rawat Jalan, Rawat Inap), dan total baris pada \texttt{fct\_kunjungan} sebesar 12.000 record sesuai dengan volume data yang direncanakan.
  
 \begin{center}
-  \includegraphics[width=0.90\textwidth]{./figures/8-8_null_check.png}
+  \includegraphics[width=0.90\textwidth]{./figures/8-5_hasil_sql.png}
   \captionof{figure}{Hasil pemeriksaan \textit{null value} dan konsistensi tipe data pada seluruh kolom Data Mart di Metabase.}
   \label{fig:8.8.null_check}
 \end{center}
