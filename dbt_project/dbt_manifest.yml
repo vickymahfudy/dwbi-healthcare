@@ -1,7 +1,7 @@
 models/staging/stg_pasien.sql: |
   select
       id_pasien,
-      nama as nama_pasien,
+      nama_pasien, -- Langsung panggil nama_pasien karena dari source-nya sudah bernama ini
       jenis_kelamin,
       cast(tanggal_lahir as date) as tanggal_lahir,
       alamat,
@@ -12,7 +12,7 @@ models/staging/stg_pasien.sql: |
 models/staging/stg_dokter.sql: |
   select
       id_dokter,
-      nama as nama_dokter,
+      nama_dokter, -- Langsung panggil nama_dokter tanpa alias 'as'
       spesialisasi,
       nomor_izin_praktek
   from {{ source('public', 'src_dokter') }}
