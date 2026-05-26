@@ -14,8 +14,7 @@ models:
       - name: jenis_kelamin
         tests:
           - accepted_values:
-              arguments:
-                values: ['L', 'P', 'Laki-laki', 'Perempuan']
+              values: ['L', 'P', 'Laki-laki', 'Perempuan']
               config:
                 severity: warn 
 
