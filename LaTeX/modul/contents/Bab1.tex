@@ -1,0 +1,214 @@
+\chapter{ DBT (Data Build Tool): The Modern Way to Transform Data}
+\begin{mybox}{Anggota kelompok}
+\begin{enumerate}
+    \itemsep0em
+	\item ENGELBERTUS RANDE (NIM 25/573149/PPA/07211)
+	\item GILBERT FANDILIAM MOOY (NIM 25/574767/PPA/07259)
+	\item Sinta Siti Nuriah (NIM 25/575177/PPA/07274)
+	\item Vicky Mahfudy (NIM 25/573019/PPA/07207)
+\end{enumerate}
+\end{mybox}
+
+\section{Pengenalan DBT}
+\subsection{Konsep dan Arsitektur DBT }
+\textbf{DBT } (\textit{data build tool}) adalah \textit{command-line tool }dan \textit{framework }berbasis Python yang memungkinkan tim data melakukan transformasi data di dalam \textit{data warehouse }menggunakan SQL murni (1). DBT bekerja pada lapisan \textbf{T } (\textit{Transform}) dalam paradigma \textbf{ELT } (\textit{Extract, }\textit{Load, Transform}).
+\begin{mybox}{Definisi Resmi DBT Labs}
+\textit{``dbt enables data analysts and engineers to transform data
+in their warehouses more effectively. ''} --- dbt Labs, 2024.
+ 
+Saat ini lebih dari \textbf{40.000 perusahaan} menggunakan DBT dalam
+lingkungan produksi, menjadikannya standar industri \textit{de facto}
+untuk transformasi data di atas \textit{cloud data warehouse}.
+\end{mybox}
+\subsubsection{Paradigma ELT dan Posisi DBT}
+ 
+Berbeda dengan \textbf{ETL} tradisional yang mentransformasi data
+\textit{sebelum} memuatnya ke \textit{warehouse}, paradigma
+\textbf{ELT} modern memuat data mentah terlebih dahulu lalu
+mentransformasinya \textit{di dalam} warehouse menggunakan
+kekuatan komputasi cloud.
+
+\begin{center}
+\begin{tikzpicture}[
+  box/.style={rectangle,draw=ugmblue,fill=blue!8,rounded corners=5pt,
+    minimum width=2.5cm,minimum height=1.1cm,align=center,font=\small\bfseries},
+  act/.style={rectangle,draw=ugmblue,fill=ugmblue,rounded corners=5pt,
+    minimum width=2.5cm,minimum height=1.1cm,align=center,
+    font=\small\bfseries,text=white},
+  arr/.style={->,thick,color=ugmgold,line width=1.5pt}
+]
+  \node[box,fill=red!10,draw=red!50] (E)
+    {Extract\\{\tiny Fivetran/Airbyte}};
+  \node[box,fill=orange!10,draw=orange!50,right=1.2cm of E] (L)
+    {Load\\{\tiny Raw tables}};
+  \node[act,right=1.2cm of L] (T)
+    {\textcolor{ugmgold}{T}ransform\\{\tiny \textbf{DBT} bekerja di sini}};
+  \node[box,fill=green!10,draw=green!50,right=1.2cm of T] (A)
+    {Analyse\\{\tiny BI / Dashboard}};
+  \draw[arr] (E)--(L);
+  \draw[arr] (L)--(T);
+  \draw[arr] (T)--(A);
+\end{tikzpicture}
+\end{center}
+DBT tidak mengekstrak atau memuat data---tugas tersebut dilakukan
+oleh \textit{ingestion tool} seperti Fivetran atau Airbyte. DBT
+hanya bekerja pada data yang sudah ada di dalam \textit{warehouse}
+\citep{bi4all2024}. Pendekatan ini melahirkan peran baru bernama
+\textbf{\textit{analytics engineer}}: menggabungkan keahlian SQL
+seorang \textit{data analyst} dengan praktik rekayasa perangkat
+lunak.
+\subsubsection{Arsitektur Berlapis (\textit{Layered Architecture})}
+ 
+Praktik terbaik dalam DBT menggunakan arsitektur berlapis yang
+memisahkan tanggung jawab setiap tahap transformasi
+\citep{dbtdoc}:
+ 
+\begin{center}
+\begin{tikzpicture}[
+  layer/.style={rectangle,draw=ugmblue!40,rounded corners=4pt,
+    minimum width=11cm,minimum height=0.95cm,
+    align=center,font=\small\bfseries},
+  arr/.style={->,thick,color=ugmgold}
+]
+  \node[layer,fill=red!10] (raw) at (0,0)
+    {RAW / SOURCES \quad
+     {\normalfont\small Data mentah dari sistem sumber, tidak disentuh DBT}};
+  \node[layer,fill=orange!10] (stg) at (0,-1.35)
+    {STAGING \texttt{(stg\_*)} \quad
+     {\normalfont\small Pembersihan, rename kolom, standardisasi tipe data}};
+  \node[layer,fill=yellow!25] (int) at (0,-2.7)
+    {INTERMEDIATE \texttt{(int\_*)} \quad
+     {\normalfont\small Logika bisnis menengah: join, kalkulasi, flag}};
+  \node[layer,fill=green!10] (mrt) at (0,-4.05)
+    {MARTS \texttt{(fct\_* / dim\_*)} \quad
+     {\normalfont\small Tabel analitik final: fact tables dan dimension tables}};
+  \draw[arr] (raw)--(stg);
+  \draw[arr] (stg)--(int);
+  \draw[arr] (int)--(mrt);
+\end{tikzpicture}
+\end{center}
+
+\section{Model dalam DBT dan Pemanfaatannya}
+\subsection{Classic Model}
+Pada modul ini digunakan database \textbf{ClassicModels} dari
+MySQL Tutorial \citep{mysqltut} sebagai dataset eksplorasi.
+ClassicModels adalah database peritel miniatur mobil klasik
+yang menyediakan data bisnis nyata dengan relasi antar tabel
+yang representatif untuk latihan membangun \textit{data warehouse}.
+
+\begin{table}[H]
+\centering
+\caption{Delapan Tabel Sumber ClassicModels (OLTP)}
+\begin{tabularx}{\linewidth}{llX}
+\toprule
+\textbf{Tabel} & \textbf{Baris} & \textbf{Deskripsi} \\
+\midrule
+\texttt{customers}    & 122   & Pelanggan: nama, kota, negara, \textit{credit limit} \\
+\texttt{orders}       & 326   & Header pesanan: tanggal, status \\
+\texttt{orderdetails} & 2.996 & Item pesanan: produk, kuantitas, harga satuan \\
+\texttt{products}     & 110   & Katalog produk: nama, lini, vendor, harga \\
+\texttt{productlines} & 7     & Lini produk: Classic Cars, Motorcycles, dll. \\
+\texttt{employees}    & 23    & Karyawan dan struktur organisasi \\
+\texttt{offices}      & 7     & Kantor penjualan: kota, negara, wilayah \\
+\texttt{payments}     & 273   & Pembayaran pelanggan \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Dari 8 tabel OLTP ini akan dibangun \textbf{star schema} dengan 5 tabel dimensi dan 2 tabel fakta menggunakan DBT\@.
+\subsection{Struktur Model dalam DBT}
+Dalam DBT, \textit{best practices} perancangan struktur model menggunakan arsitektur berlapis (\textit{layered architecture}) untuk memisahkan tanggung jawab dari setiap tahap transformasi. Pada implementasi proyek \texttt{classicmodels\_dbt}, strukturnya dibagi sebagai berikut:
+
+% \subsection*{A. Direktori Project (\texttt{models/})}
+DBT menyusun \textit{pipeline}-nya dalam folder \texttt{models/} yang mencakup dua subfolder utama, yaitu:
+
+\begin{itemize}
+    \item \textbf{Folder \texttt{staging/} (Layer Staging)} \\
+    Layer ini bertujuan untuk melakukan standardisasi kolom, perbaikan tipe data, dan pembersihan awal dari \textit{raw data}. Model ini di-\textit{materialize} sebagai \textit{view}.
+    \begin{itemize}
+        \item Terdapat file konfigurasi \texttt{schema.yml} (untuk mendefinisikan sumber data dari OLTP asli beserta \textit{testing} dasar seperti \texttt{not\_null} atau \texttt{unique}).
+        \item File-file SQL yang diberi prefiks \texttt{stg\_} (misalnya: \texttt{stg\_customers.sql}, \\
+        \texttt{stg\_orders.sql}, \texttt{stg\_orderdetails.sql}, \texttt{stg\_products.sql}, \\
+        \texttt{stg\_employees.sql}, \texttt{stg\_offices.sql}).
+    \end{itemize}
+
+    \item \textbf{Folder \texttt{marts/} (Layer Marts / Core)} \\
+    Layer ini memuat struktur tabel analitik final yang menggabungkan logika bisnis dan menerapkan desain \textit{Star Schema} (\textit{Dimensional Modeling}). Tabel-tabel di sini di-\textit{materialize} sebagai tabel fisik di dalam database.
+    \begin{itemize}
+        \item File berprefiks \texttt{dim\_} (Tabel Dimensi / Konteks): \texttt{dim\_date.sql}, \\
+        \texttt{dim\_product.sql}, \texttt{dim\_customer.sql}, \texttt{dim\_employee.sql}, \\
+        \texttt{dim\_office.sql}.
+        \item File berprefiks \texttt{fct\_} (Tabel Fakta / Pengukuran Bisnis): \\
+        \texttt{fct\_sales.sql}, \texttt{fct\_monthly\_sales.sql}.
+        \item File \texttt{schema.yml} untuk mengatur dokumentasi dan aturan \textit{testing} di level \textit{marts}.
+    \end{itemize}
+\end{itemize}
+
+% \subsection*{B. Folder Pendukung Lainnya}
+Selain folder \texttt{models/}, proyek ini juga memanfaatkan struktur komponen DBT lainnya:
+
+\begin{itemize}
+    \item \texttt{tests/}: Berisi \textit{custom SQL script} untuk pengujian logika bisnis spesifik (contohnya memastikan \textit{revenue} selalu positif, \texttt{assert\_revenue\_positive.sql}).
+    \item \texttt{macros/}: Berisi fungsi \textit{reusable} dalam bahasa Jinja2 yang dipakai berulang dalam kode SQL (misalnya \texttt{revenue\_segment.sql}).
+    \item \texttt{dbt\_project.yml}: Merupakan file konfigurasi induk yang mendefinisikan \textit{paths} (alur folder proyek) serta pengaturan \textit{materialization} di tiap layer.
+\end{itemize}
+
+\section{Data Quality dalam DBT}
+% \section{Pengendalian Kualitas Data (\textit{Data Quality}) pada DBT}
+
+Dalam perancangan \textit{Data Warehouse}, memastikan keakuratan dan integritas data adalah sebuah keharusan. DBT (\textit{Data Build Tool}) memfasilitasi kebutuhan ini melalui fitur \textbf{Pengujian Otomatis (\textit{Automated Testing})} yang terintegrasi secara mulus di dalam \textit{pipeline} transformasi data.
+
+Konsep dasar pengujian di dalam DBT sangatlah sederhana: \textbf{sebuah tes adalah \textit{query} SQL (\texttt{SELECT}) yang secara khusus dirancang untuk menangkap data anomali atau data yang melanggar aturan}. Apabila \textit{query} tersebut tidak menemukan data yang salah (mengembalikan 0 baris), maka tes tersebut dinyatakan \textbf{lulus (\textit{pass})}. 
+
+Secara umum, DBT membagi pengujian ke dalam dua pendekatan utama:
+
+\subsection{Pengujian Bawaan (\textit{Generic Tests})}
+\textit{Generic Tests} adalah sekumpulan fungsi pengujian standar bawaan DBT\@. Pengujian ini sangat praktis karena tidak perlu menulis kode SQL secara manual; cukup dengan mendeklarasikannya di dalam file konfigurasi (seperti \texttt{schema.yml})\@. 
+
+Terdapat empat \textit{generic tests} utama yang sering digunakan di industri:
+\begin{itemize}
+    \item \textbf{\texttt{not\_null}}: Memvalidasi bahwa sebuah kolom wajib memiliki isi (tidak boleh \textit{null}).
+    \item \textbf{\texttt{unique}}: Menjamin tidak ada nilai ganda (duplikat) di dalam sebuah kolom. Aturan ini sangat penting untuk memvalidasi kolom \textit{Primary Key}.
+    \item \textbf{\texttt{accepted\_values}}: Membatasi nilai data agar hanya sesuai dengan daftar validasi yang telah ditetapkan (misalnya, kolom \textit{status} hanya boleh berisi nilai `Shipped', `Resolved', atau `Cancelled').
+    \item \textbf{\texttt{relationships}}: Memverifikasi integritas referensial antar tabel (identik dengan konsep \textit{Foreign Key} pada \textit{relational database}).
+\end{itemize}
+
+\textbf{Contoh Pendefinisian di \texttt{schema.yml}:}
+\begin{lstlisting}[caption=Konfigurasi Generic Test]
+sources:
+  - name: raw
+    database: classicmodels
+    tables:
+      - name: orders
+        columns:
+          - name: orderNumber
+            tests: 
+              - not_null
+              - unique
+\end{lstlisting}
+
+\subsection{Pengujian Logika Bisnis (\textit{Singular Tests})}
+Dalam skenario dunia nyata, aturan bisnis seringkali lebih kompleks dari sekadar mengecek nilai kosong atau duplikat. Untuk mengatasi hal ini, DBT menyediakan \textit{Singular Tests}. 
+
+Pada pendekatan ini, pengembang dapat menulis skrip SQL (\textit{custom query}) yang spesifik dan menyimpannya di dalam direktori \texttt{tests/}. Sebagai contoh, pada studi kasus \textbf{Classic Models}, kita harus memastikan bahwa perhitungan pendapatan (\textit{revenue}) tidak boleh bernilai negatif. 
+
+\textbf{Contoh Skrip \texttt{tests/assert\_revenue\_positive.sql}:}
+\begin{lstlisting}[caption=Skrip Singular Test]
+-- Skrip ini dirancang untuk mendeteksi baris dengan pendapatan negatif.
+-- Tes akan GAGAL jika ada output yang dihasilkan.
+SELECT
+    order_number,
+    line_revenue
+FROM {{ ref('fct_sales') }}
+WHERE line_revenue < 0
+\end{lstlisting}
+
+\subsection{Menjalankan Pengujian (Eksekusi)}
+Setelah semua aturan pengujian (\textit{generic} maupun \textit{singular}) didefinisikan, langkah terakhir adalah mengeksekusinya melalui antarmuka \textit{Command-Line} (CLI):
+\begin{itemize}
+    \item \texttt{dbt test}: Untuk menjalankan seluruh skrip pengujian saja.
+    \item \texttt{dbt build}: Untuk menjalankan proses pembuatan tabel (\textit{run}) dan pengujian (\textit{test}) sekaligus dalam satu urutan kerja.
+\end{itemize}
+
+% \subsection*{Studi Kasus: Classic Models}
+% Pada proyek pembelajaran Classic Models, implementasi arsitektur ini terbukti sangat efektif. \textit{Pipeline} yang dibangun berhasil memvalidasi seluruh logika dengan status \textbf{18/18 tes lulus (\textit{passed})}. Hal ini menjadi jaminan bahwa data telah bertransformasi dari sistem sumber (OLTP) ke dalam bentuk \textit{Star Schema} (\textit{Marts}) dengan tingkat akurasi dan kualitas yang tinggi.

@@ -1,0 +1,137 @@
+\documentclass[oneside,a4paper,11pt,explicit]{book}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[sedes]{kultem} % Paket template wajib Anda
+\usepackage[english]{babel}
+\usepackage{mdframed}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{comment}
+\usepackage{subfig}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{multicol}
+
+% Perbaikan natbib: Tambahkan opsi 'numbers'
+\usepackage[numbers,semicolon,round,sort&compress,sectionbib]{natbib}
+\usepackage{float}      % Untuk opsi [H] pada tabel
+\usepackage{tabularx}   % Untuk kolom tipe X
+\usepackage{booktabs}   % Garis tabel profesional \toprule
+\usepackage{tikz}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{positioning}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}    % Untuk persamaan matematika
+\usepackage{makeidx}
+\usepackage[accsupp]{axessibility}  % Aksesibilitas pembaca PDF
+
+% --- JANGAN DIUBAH: Urutan hyperref harus di bawah paket biasa ---
+\usepackage[hidelinks, hypertexnames=false]{hyperref}
+\usepackage{lipsum}
+
+% Konfigurasi listings untuk kode program
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!5},
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    showstringspaces=false,
+    numbers=left,           
+    numberstyle=\tiny\color{codegray}, 
+    stepnumber=1,           
+    numbersep=8pt,          
+    firstnumber=1,
+    numberfirstline=true
+}
+
+% Definisikan warna custom UGM
+\definecolor{ugmblue}{RGB}{0, 51, 102}  
+\definecolor{ugmgold}{RGB}{255, 204, 0}
+
+% Jarak Judul Section
+\titlespacing{\section}{0pt}{\parskip}{-.5\parskip}
+\titlespacing{\subsection}{0pt}{\parskip}{-.5\parskip}
+\titlespacing{\subsubsection}{0pt}{\parskip}{-.5\parskip}
+
+\renewcommand{\familydefault}{\sfdefault}
+\renewcommand{\partname}{Bagian}
+
+\addto\captionsenglish{%
+  \renewcommand{\contentsname}{Daftar Isi}%
+  \renewcommand{\chaptername}{Bab}%
+  \renewcommand{\bibname}{Daftar Pustaka}%
+  \renewcommand{\figurename}{Gambar}%
+  \renewcommand{\tablename}{Tabel}%
+  \renewcommand{\listfigurename}{Daftar Gambar}%
+}
+
+\setlength{\parskip}{1em}
+\setlength{\emergencystretch}{3em}
+\hbadness=10000
+\hfuzz=25pt
+
+% --- Perbaikan Macro Text Commands agar Bebas Warning ChkTeX ---
+\newcommand{\teksmerah}[1]{{\color{red}\slshape #1\/}}
+\newcommand{\merahbold}[1]{{\color{red}\bfseries #1}}
+\newcommand{\teksbiru}[1]{{\fontfamily{qcs}\selectfont\slshape #1\/}}
+\newcommand{\birubold}[1]{{\color{blue}\bfseries #1}}
+\newcommand{\tekshijau}[1]{{\color{green} #1}}
+\newcommand{\teksungu}[1]{{\fontfamily{lmss}\selectfont\itshape #1\/}}
+  
+% Perbaikan macro tcolorbox dengan argumen yang benar [2]
+\newtcolorbox{mybox}[2][]{%
+  colback      = blue!5!white,
+  colframe     = blue!75!black,
+  fonttitle    = \bfseries,
+  colbacktitle = blue!85!black,
+  title        = #2,#1,
+}
+
+
+\definecolor{delim}{RGB}{20,105,176}
+\definecolor{numb}{RGB}{106, 109, 32}
+\definecolor{string}{rgb}{0.64,0.08,0.08}
+
+\setcounter{secnumdepth}{2}
+\makeindex
+
+% --- Struktur Judul Utama ---
+\title{Data Warehouse and Business Intelligence}
+\subtitle{Tugas Kelompok: Data Build Tool (DBT)}
+\author{Engelbertus Rande, Gilbert Fandiliam Mooy, Sinta Siti Nuriah, Vicky Mahfudy}
+\professor{Khabib Mustofa}
+
+\begin{document}
+\maketitle
+
+\frontmatter
+\renewcommand{\baselinestretch}{0.6}\normalsize
+\tableofcontents
+\renewcommand{\baselinestretch}{1.0}\normalsize
+
+\mainmatter{}
+\normalsize
+\part{DBT Sebagai Tools Bantu Untuk Data Warehouse}
+\include{contents/Bab1}
+
+\part{Penyiapan Lingkungan DBT}
+\include{contents/Bab2}
+
+\part{Kasus dan Pembahasan}
+\include{contents/Bab3}
+
+\backmatter{}
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\printindex
+\end{document}

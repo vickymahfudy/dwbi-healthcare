@@ -1,0 +1,727 @@
+\chapter{Penyiapan Lingkungan DBT}
+\begin{mybox}{Anggota kelompok}
+\begin{enumerate}
+    \itemsep0em
+	\item ENGELBERTUS RANDE (NIM 25/573149/PPA/07211)
+	\item GILBERT FANDILIAM MOOY (NIM 25/574767/PPA/07259)
+	\item Sinta Siti Nuriah (NIM 25/575177/PPA/07274)
+	\item Vicky Mahfudy (NIM 25/573019/PPA/07207)
+\end{enumerate}
+\end{mybox}
+
+\section{DBT Core vs DBT Cloud}
+
+\subsection{Definisi Dasar}
+
+Dalam ekosistem transformasi data modern, dbt (\textit{data build tool}) hadir dalam dua varian utama yang melayani kebutuhan operasional yang berbeda:
+
+\begin{enumerate}[leftmargin=*, labelsep=0.5em]
+    \item \textbf{dbt Core:} Sekumpulan paket Python \textit{open-source}, yang dijalankan melalui baris perintah (\textit{command line}), yang membantu Anda mengubah, mendokumentasikan, dan menguji data Anda\cite{cook2023dbt}.
+    \item \textbf{dbt Cloud:} Antarmuka pengguna (UI) berbasis web yang memungkinkan Anda untuk mengembangkan dan menerapkan \textit{pipeline} data yang dibangun di atas dbt Core\cite{cook2023dbt}.
+\end{enumerate}
+
+\subsection{Analisis Perbedaan}
+Meskipun dbt Cloud menggunakan dbt Core sebagai mesin utamanya, terdapat beberapa perbedaan kunci dalam hal manajemen dan fungsionalitas:
+
+\subsubsection{1. Deployment dan Manajemen Infrastruktur}
+\begin{itemize}
+    \item \textbf{dbt Core:} Mengharuskan pengguna untuk mengelola infrastruktur mereka sendiri (\textit{self-managed}). Sangat cocok bagi tim yang memiliki sumber daya DevOps untuk kendali penuh\cite{foundational2024dbt}.
+    \item \textbf{dbt Cloud:} Merupakan layanan terkelola sepenuhnya (\textit{fully managed service})\cite{foundational2024dbt}. Hal ini mengurangi beban operasional karena dbt Labs menangani pembaruan dan stabilitas sistem\cite{foundational2024dbt}.
+\end{itemize}
+
+\subsubsection{2. Antarmuka Pengguna (User Interface)}
+\begin{itemize}
+    \item \textbf{dbt Core:} Beroperasi sepenuhnya melalui terminal/CLI, menuntut kemahiran dalam perintah-perintah teks\cite{foundational2024dbt}.
+    \item \textbf{dbt Cloud:} Menyediakan IDE berbasis browser yang intuitif, menyederhanakan manajemen proyek bagi pengguna baru atau non-insinyur\cite{foundational2024dbt}.
+\end{itemize}
+
+\subsubsection{3. Biaya dan Skalabilitas}
+\begin{itemize}
+    \item \textbf{dbt Core:} Gratis untuk digunakan namun membutuhkan biaya operasional tersembunyi untuk pemeliharaan server dan implementasi fitur tambahan\cite{foundational2024dbt}.
+    \item \textbf{dbt Cloud:} Berbasis langganan, namun sudah menyertakan fitur bawaan seperti penjadwalan (\textit{job scheduling}), pemantauan (\textit{monitoring}), dan peringatan (\textit{alerting}) yang siap pakai\citep{foundational2024dbt}.
+\end{itemize}
+
+\subsection{Ringkasan Perbandingan}
+
+Setelah memahami detail fungsional dari masing-masing varian, tabel berikut menyajikan perbandingan parameter teknis secara berdampingan. Ringkasan ini bertujuan untuk mempermudah evaluasi pemilihan perangkat berdasarkan kebutuhan spesifik organisasi atau proyek:
+ 
+\begin{table}[H]
+\centering
+\caption{Perbandingan DBT Core dan DBT Cloud}
+\begin{tabularx}{\linewidth}{lXX}
+\toprule
+\textbf{Aspek} & \textbf{DBT Core} & \textbf{DBT Cloud} \\
+\midrule
+Lisensi      & Open source (gratis)      & SaaS berbayar (ada tier gratis) \\
+Antarmuka    & \textit{Command line}     & Web IDE + GUI \\
+Penjadwalan  & Perlu Airflow / Cron      & Built-in scheduler \\
+Kolaborasi   & Via Git / GitHub          & Built-in collaboration \\
+Dokumentasi  & Hosting mandiri           & Hosting otomatis \\
+Rekomendasi  & Belajar, proyek lokal     & Tim produksi skala besar \\
+Kontrol Versi & Konfigurasi Manual & Terintegrasi Langsung \\
+Biaya Lisensi & Gratis & Berbayar (Berlangganan) \\ 
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+
+\subsection{Fitur dan Dukungan DBT}
+DBT hadir dengan seperangkat fitur yang menjadikan transformasi data lebih terstruktur, andal, dan kolaboratif. Berikut adalah fitur-fitur utama beserta penjelasannya:
+\subsubsection{Fitur: Models}
+ 
+\textbf{Model} adalah unit kerja terkecil dalam DBT---satu file
+\texttt{.sql} berisi satu pernyataan \texttt{SELECT}. Setiap model
+menghasilkan satu tabel atau \textit{view} di database secara
+otomatis. DBT mendukung empat jenis \textbf{materialisasi}:
+ 
+\begin{itemize}[leftmargin=*,itemsep=3pt]
+  \item \texttt{view} --- model dimaterialisasi sebagai
+        \textit{database view}; tidak menyimpan data fisik.
+        Cocok untuk lapisan \textit{staging}.
+  \item \texttt{table} --- model dimaterialisasi sebagai tabel
+        fisik di \textit{warehouse}. Cocok untuk lapisan
+        \textit{marts} yang sering dikueri.
+  \item \texttt{incremental} --- hanya memproses baris data baru
+        sejak eksekusi terakhir. Sangat efisien untuk tabel besar
+        yang terus bertambah.
+  \item \texttt{ephemeral} --- tidak disimpan di database; kodenya
+        disisipkan sebagai CTE ke dalam model yang mereferensikannya.
+\end{itemize}
+
+ \subsubsection{Fitur: Sources}
+ 
+\textbf{Sources} adalah deklarasi tabel sumber (\textit{raw data})
+yang sudah ada di \textit{warehouse}, dideklarasikan di file
+\texttt{schema.yml} dengan fungsi \texttt{\{\{ source () \}\}}.
+Manfaatnya: nama tabel sumber terpusat di satu tempat, dapat
+dilengkapi \textit{freshness check}, dan otomatis terdokumentasi.
+ 
+\subsubsection{Fitur: Tests}
+ 
+DBT menyediakan pengujian data otomatis dalam dua bentuk:
+ 
+\begin{enumerate}[leftmargin=*,itemsep=3pt]
+  \item \textbf{Generic Tests} --- dikonfigurasi di
+        \texttt{schema.yml}. Empat \textit{generic test} bawaan:
+        \begin{itemize}[leftmargin=2em,itemsep=1pt]
+          \item \texttt{not\_null} --- kolom tidak boleh NULL\@.
+          \item \texttt{unique} --- setiap nilai harus unik.
+          \item \texttt{accepted\_values} --- nilai dari daftar
+                yang ditentukan.
+          \item \texttt{relationships} --- integritas
+                \textit{foreign key}.
+        \end{itemize}
+  \item \textbf{Singular Tests} --- file \texttt{.sql} kustom
+        di folder \texttt{tests/}. Query menghasilkan baris
+        \textit{hanya jika ada data yang gagal}; nol baris
+        berarti \textit{pass}.
+\end{enumerate}
+ 
+\subsubsection{Fitur: Seeds, Snapshots, dan Macros}
+ 
+\begin{itemize}[leftmargin=*,itemsep=4pt]
+  \item \textbf{Seeds} --- file CSV kecil di folder \texttt{seeds/}
+        yang di-\textit{upload} ke \textit{warehouse} via
+        \texttt{dbt seed}. Cocok untuk data referensi statis
+        seperti tabel pemetaan kode wilayah.
+  \item \textbf{Snapshots} --- merekam riwayat perubahan data
+        (\textit{Slowly Changing Dimensions}/SCD). Mendukung
+        strategi \texttt{timestamp} dan \texttt{check}.
+  \item \textbf{Macros} --- fungsi \textit{reusable} berbasis
+        \textbf{Jinja2} yang dapat dipanggil di file SQL manapun.
+        Paket komunitas \texttt{dbt\_utils} menyediakan
+        ratusan macros siap pakai seperti
+        \texttt{generate\_surrogate\_key ()} dan
+        \texttt{date\_spine ()}.
+\end{itemize}
+\subsubsection{Fitur: Dokumentasi Otomatis}
+ 
+Perintah \texttt{dbt docs generate} menghasilkan situs
+dokumentasi interaktif yang mencakup:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item \textbf{Model Catalog} --- semua model, kolom, tipe
+        data, dan deskripsi.
+  \item \textbf{DAG Lineage Graph} --- visualisasi interaktif
+        alur transformasi dari \textit{raw sources} hingga
+        tabel analitik final, termasuk \textit{column-level
+        lineage}.
+  \item \textbf{Source Freshness \& Test Coverage} --- laporan
+        kesegaran data sumber dan cakupan pengujian per model.
+\end{itemize}
+\subsubsection{Dukungan Database (Adapters)}
+ 
+Salah satu kekuatan DBT adalah dukungannya terhadap berbagai
+\textit{data warehouse} melalui sistem \textbf{adapter}:
+ 
+\begin{table}[H]
+\centering
+\caption{Adapter DBT yang Tersedia}
+\begin{tabularx}{\linewidth}{llX}
+\toprule
+\textbf{Adapter} & \textbf{Instalasi} & \textbf{Keterangan} \\
+\midrule
+DuckDB     & \texttt{dbt-duckdb}     & In-process, ideal lokal/Colab \\
+PostgreSQL & \texttt{dbt-postgres}   & Database relasional open source \\
+BigQuery   & \texttt{dbt-bigquery}   & Google Cloud data warehouse \\
+Snowflake  & \texttt{dbt-snowflake}  & Cloud data platform populer \\
+Redshift   & \texttt{dbt-redshift}   & Amazon Web Services DWH \\
+Databricks & \texttt{dbt-databricks} & Lakehouse platform \\
+Spark      & \texttt{dbt-spark}      & Apache Spark engine \\
+Trino      & \texttt{dbt-trino}      & Distributed query engine \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Instalasi \textit{Package}}
+\subsection{Langkah 1: Instalasi DBT dan Pengaturan \textit{Base Path}}
+
+Langkah awal dalam praktikum ini adalah menyiapkan lingkungan kerja di Google Colab, menginstal \textit{adapter} database yang diperlukan, serta memastikan persistensi data melalui Google Drive.
+
+\subsubsection{Potongan Kode}
+Berikut adalah skrip Python yang digunakan untuk inisialisasi lingkungan:
+
+\begin{lstlisting}[language=Python, caption=Instalasi dan Konfigurasi Path]
+# @title Step 1: Install DBT & Set Base Path
+import os
+
+# 1. Input Path dari User
+root_path = "/content/drive/MyDrive"
+folder_path = "dbt_analytics" 
+base_folder_path = os.path.join(root_path, folder_path)
+
+# 2. Instalasi dbt-duckdb
+print("Sedang menginstal dbt-duckdb...")
+!pip install -q dbt-duckdb
+
+# 3. Mount Google Drive
+from google.colab import drive
+print("Menghubungkan ke Google Drive...")
+drive.mount('/content/drive')
+
+# 4. Membuat folder induk jika belum ada
+if not os.path.exists(base_folder_path):
+    os.makedirs(base_folder_path)
+    print(f"Folder induk baru dibuat di: {base_folder_path}")
+else:
+    print(f"Folder induk ditemukan: {base_folder_path}")
+
+# 5. Verifikasi Akhir
+import duckdb
+print(f"\nSiap! DuckDB v{duckdb.__version__} terpasang.")
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{Baris 2\-7:} Menggunakan modul \texttt{os} untuk mendefinisikan jalur folder proyek (\texttt{base\_folder\_path}). Hal ini memungkinkan fleksibilitas bagi pengguna untuk menentukan nama folder penyimpanan di Google Drive.
+    \item \textbf{Baris 10\-11:} Menginstal paket \texttt{dbt-duckdb}. Penggunaan parameter \texttt{-q} (\textit{quiet}) berfungsi untuk menyembunyikan log instalasi yang terlalu panjang.
+    \item \textbf{Baris 14\-16:} Melakukan \textit{mounting} Google Drive ke \textit{filesystem} lokal Google Colab pada direktori \texttt{/content/drive}.
+    \item \textbf{Baris 19\-23:} Memeriksa keberadaan folder proyek. Jika folder belum ada, sistem akan membuatnya secara otomatis menggunakan fungsi \texttt{os.makedirs}.
+    \item \textbf{Baris 26\-27:} Melakukan verifikasi apakah \textit{library} DuckDB telah terinstal dengan benar dengan mencetak nomor versinya.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Kode ini berfungsi sebagai \textbf{\textit{environment provisioner}}. Tujuannya adalah memastikan bahwa semua dependensi perangkat lunak tersedia, koneksi ke penyimpanan awan terjalin, dan struktur direktori siap digunakan sebelum proses transformasi data dimulai.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} String \texttt{folder\_path} (nama folder proyek) dan kredensial akses Google Drive melalui proses autentikasi Colab.
+    \item \textbf{Output:} Terpasangnya \textit{library} \texttt{dbt-duckdb}, direktori Google Drive yang terhubung, dan terciptanya folder \texttt{dbt\_analytics} di dalam Google Drive sebagai tempat penyimpanan permanen.
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+Penggunaan kode ini sangat krusial karena Google Colab bersifat \textit{ephemeral} (sementara); data yang disimpan di \textit{local runtime} akan hilang setelah sesi berakhir. Dengan menghubungkan Google Drive dan mengatur \textit{base path} di sana, seluruh konfigurasi proyek dbt, file metadata, dan database DuckDB akan tersimpan secara permanen dan dapat diakses kembali di sesi berikutnya. Pemilihan \texttt{dbt-duckdb} didasarkan pada efisiensi DuckDB sebagai database analitik \textit{in-process} yang sangat cepat untuk lingkungan terbatas seperti Colab.
+
+\subsection{Langkah 2: Inisialisasi Proyek DBT}
+
+Setelah lingkungan dasar dan folder induk siap, langkah berikutnya adalah membentuk struktur direktori standar yang diperlukan oleh dbt untuk mengelola model, skrip, dan konfigurasi.
+
+\subsubsection{Potongan Kode}
+Berikut adalah kode yang digunakan untuk menginisialisasi proyek dbt:
+
+\begin{lstlisting}[language=Python, caption=Inisialisasi Proyek DBT]
+# @title Step 2: Setup Project DBT
+# Masukkan nama project DBT yang akan Anda install.
+project_name = "my_business_project" 
+
+full_project_path = os.path.join(base_folder_path, project_name)
+
+# Proses Inisialisasi
+if not os.path.exists(full_project_path):
+    os.chdir(base_folder_path)
+    # Jalankan init tanpa tanya-tanya (skip-profile)
+    !dbt init {project_name} --skip-profile-setup
+    print(f"Project '{project_name}' berhasil dibuat di Drive!")
+else:
+    print(f"Project '{project_name}' sudah ada. Kami akan menggunakan folder yang tersedia.")
+
+# Pindah ke direktori project
+os.chdir(full_project_path)
+print(f"Lokasi kerja saat ini: {os.getcwd()}")
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{Baris 3\-5:} Mendefinisikan nama proyek (\texttt{project\_name}) dan menggabungkannya dengan \texttt{base\_folder\_path} untuk mendapatkan jalur lengkap direktori proyek.
+    \item \textbf{Baris 8\-11:} Melakukan pengecekan apakah folder proyek sudah ada. Jika belum, skrip akan berpindah ke folder induk dan menjalankan perintah CLI \texttt{dbt init}. 
+    \item \textbf{Parameter \texttt{--skip-profile-setup}:} Digunakan untuk melewati konfigurasi interaktif profil koneksi database. Hal ini penting dalam lingkungan otomatis seperti \textit{notebook} agar proses tidak terhenti menunggu input pengguna.
+    \item \textbf{Baris 16\-17:} Mengubah direktori kerja aktif (\textit{working directory}) ke dalam folder proyek yang baru dibuat menggunakan \texttt{os.chdir}.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Fungsi utama dari kode ini adalah \textbf{pembuatan kerangka proyek (\textit{scaffolding})}. Perintah \texttt{dbt init} secara otomatis menghasilkan folder-folder standar dbt seperti \texttt{models/}, \texttt{seeds/}, \texttt{snapshots/}, \texttt{macros/}, serta file konfigurasi utama \texttt{dbt\_project.yml}.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} Variabel \texttt{project\_name} (nama proyek) dan variabel \texttt{base\_folder\_path} (lokasi penyimpanan induk dari langkah sebelumnya).
+    \item \textbf{Output:} Terbentuknya struktur direktori dbt yang lengkap di Google Drive dan berpindahnya lokasi kerja sistem ke dalam folder tersebut.
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+\begin{enumerate}
+    \item \textbf{Standarisasi:} dbt mewajibkan struktur folder tertentu agar dapat mengenali model dan konfigurasi. Melakukan inisialisasi secara manual sangat rentan kesalahan, sehingga penggunaan \texttt{dbt init} adalah praktik terbaik.
+    \item \textbf{Efisiensi Alur Kerja:} Dengan berpindah ke direktori proyek menggunakan \texttt{os.chdir}, perintah dbt selanjutnya (seperti \texttt{dbt run} atau \texttt{dbt seed}) dapat dijalankan langsung tanpa perlu menuliskan jalur folder secara berulang-ulang.
+    \item \textbf{Idempotensi:} Pengecekan \texttt{if not os.path.exists} memastikan bahwa jika skrip dijalankan ulang, sistem tidak akan menimpa proyek yang sudah ada, melainkan hanya menyambungkan kembali sesi ke folder tersebut.
+\end{enumerate}
+
+\subsection{Langkah 3: Konfigurasi dan Pengujian Koneksi}
+
+Setelah struktur proyek terbentuk, langkah krusial berikutnya adalah menghubungkan dbt dengan \textit{engine} database DuckDB\@. Hal ini dilakukan melalui pembuatan file konfigurasi \texttt{profiles.yml}.
+
+\subsubsection{Potongan Kode}
+Berikut adalah skrip Python yang digunakan untuk mengonfigurasi profil koneksi dan melakukan verifikasi:
+
+\begin{lstlisting}[language=Python, caption=Konfigurasi profiles.yml dan Uji Koneksi]
+# @title Step 3: Config & Connection Test
+database_name = "my_business_db" 
+
+# 1. VALIDASI DATA DARI STEP SEBELUMNYA
+if 'full_project_path' not in locals() or 'project_name' not in locals():
+    print("ERROR: Data project tidak ditemukan.")
+else:
+    # 2. KONFIGURASI FILE DATABASE
+    if not database_name.endswith('.duckdb'):
+        db_filename = database_name + ".duckdb"
+    else:
+        db_filename = database_name
+
+    database_path = os.path.join(full_project_path, db_filename)
+
+    # 3. PEMBUATAN PROFILES.YML
+    profiles_content = f"""
+{project_name}:
+  outputs:
+    dev:
+      type: duckdb
+      path: '{database_path}'
+      extensions:
+        - httpfs
+        - parquet
+      threads: 4
+  target: dev
+"""
+
+    # Pastikan folder .dbt ada di home directory
+    !mkdir -p /root/.dbt/
+
+    with open('/root/.dbt/profiles.yml', 'w') as f:
+        f.write(profiles_content)
+
+    print(f"Konfigurasi tersimpan!")
+    print(f"File database: {db_filename}")
+
+    # 4. VERIFIKASI (dbt debug)
+    print("Menjalankan dbt debug untuk mengecek koneksi...")
+    os.chdir(full_project_path)
+    !dbt debug
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{Baris 5\-7:} Melakukan validasi variabel \texttt{full\_project\_path} dan \texttt{project\_name}. Hal ini menjamin bahwa langkah-langkah sebelumnya telah dijalankan dengan benar sebelum melakukan konfigurasi.
+    \item \textbf{Baris 10\-15:} Logika untuk memastikan file database memiliki ekstensi \texttt{.duckdb}. Jalur lengkap database (\texttt{database\_path}) diletakkan di dalam folder proyek di Google Drive agar data bersifat permanen.
+    \item \textbf{Baris 18\-29:} Membuat \textit{string} YAML yang mendefinisikan \texttt{profiles.yml}. Di sini ditentukan jenis database (\texttt{duckdb}), lokasi file, \textit{threads} untuk pemrosesan paralel, serta ekstensi tambahan (\texttt{httpfs} dan \texttt{parquet}) untuk kemampuan membaca data dari \textit{cloud storage}.
+    \item \textbf{Baris 32\-35:} Membuat direktori tersembunyi \texttt{/root/.dbt/} dan menuliskan isi konfigurasi ke dalam file \texttt{profiles.yml}.
+    \item \textbf{Baris 42\-44:} Menjalankan perintah CLI \texttt{dbt debug}. Perintah ini melakukan pemeriksaan sistem menyeluruh, mulai dari keberadaan file \texttt{dbt\_project.yml}, validitas \texttt{profiles.yml}, hingga koneksi fisik ke file database DuckDB\@.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Kode ini berfungsi sebagai \textbf{jembatan penghubung (\textit{connectivity bridge})}. Dalam arsitektur dbt, proyek dbt (kode SQL) dan profil (koneksi database) dipisahkan secara logis. Kode ini secara dinamis membangun profil tersebut agar sesuai dengan lingkungan \textit{cloud} di Google Colab.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} Nama database (\texttt{database\_name}) dari pengguna, serta jalur proyek yang sudah didefinisikan pada langkah sebelumnya.
+    \item \textbf{Output:} File fisik \texttt{profiles.yml} di direktori sistem (\texttt{/root/.dbt/}) dan laporan status \texttt{dbt debug} yang menunjukkan status \texttt{OK CONNECTION} jika berhasil.
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+\begin{enumerate}
+    \item \textbf{Otomatisasi Lokasi Profil:} Secara \textit{default}, dbt mencari file profil di folder \texttt{~/.dbt/}. Karena kita bekerja di Google Colab yang berbasis Linux, skrip ini memastikan file tersebut dibuat di lokasi yang tepat secara otomatis tanpa perlu interaksi manual dengan editor teks.
+    \item \textbf{Pemisahan Target:} Konfigurasi ini menggunakan target \texttt{dev}. Hal ini mempermudah jika di masa depan proyek dikembangkan ke tahap \texttt{prod} (produksi) dengan hanya mengganti profil tanpa mengubah kode model SQL\@.
+    \item \textbf{Fitur Ekstensi DuckDB:} Penambahan ekstensi \texttt{httpfs} dan \texttt{parquet} dalam profil sangat penting untuk skenario data modern, di mana database sering kali harus berinteraksi dengan file eksternal yang disimpan di internet atau dalam format \textit{columnar}.
+    \item \textbf{Diagnostik Dini:} Penggunaan \texttt{dbt debug} di akhir langkah instalasi sangat krusial untuk memastikan tidak ada kesalahan pengetikan (\textit{typo}) atau masalah hak akses sebelum pengguna mulai menulis kode transformasi yang kompleks.
+\end{enumerate}
+\section{Workflow dan Use Case}
+
+Setelah infrastruktur dbt siap, proses dialihkan ke alur kerja pemrosesan data. Tahap pertama dalam alur kerja ini adalah \textit{Data Ingestion}, di mana data mentah dari sumber eksternal ditarik dan disiapkan ke dalam format yang dapat diproses oleh dbt.
+
+\subsection{Langkah 4: Ingest Data SQL Mentah (\textit{Raw Data Ingestion})}
+
+Langkah ini bertujuan untuk mengambil \textit{database dump} dalam format MySQL dan mengonversinya menjadi database DuckDB yang kompatibel.
+
+\subsubsection{Potongan Kode}
+
+\begin{lstlisting}[language=Python, caption=Fungsi Ingest SQL ke DuckDB]
+# @title Step 4: Ingest Raw SQL Data
+import requests
+import re
+import duckdb
+import os
+
+sql_url = "https://raw.githubusercontent.com/.../mysqlsampledatabase.sql"
+
+def ingest_sql_to_duckdb(url, output_path):
+    print(f"Mengunduh file dari: {url}...")
+    response = requests.get(url)
+    sql_content = response.content.decode('latin-1')
+
+    print("Membersihkan sintaks MySQL...")
+    # 1. Hapus komentar dan metadata MySQL
+    sql_content = re.sub(r'/\*.*?\*/', '', sql_content, flags=re.DOTALL)
+    
+    # 2. Ganti backtick (`) ke kutip ganda (")
+    sql_content = re.sub(r'`(\w+)`', r'"\1"', sql_content)
+
+    # 3. Penyesuaian Tipe Data (MySQL -> DuckDB)
+    sql_content = re.sub(r'(?i)\bmediumtext\b', 'TEXT', sql_content)
+    sql_content = re.sub(r'(?i)\bint\(\d+\)', 'INTEGER', sql_content)
+
+    # 4. Hapus engine-specific MySQL
+    sql_content = re.sub(r'(?i)ENGINE=\w+', '', sql_content)
+    
+    # 5. Eksekusi ke DuckDB
+    conn = duckdb.connect(output_path)
+    statements = re.split(r';\s*\n', sql_content)
+    for stmt in statements:
+        if stmt.strip():
+            conn.execute(stmt + ";")
+    
+    conn.close()
+
+ingest_sql_to_duckdb(sql_url, database_path)
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{Pengunduhan Data:} Menggunakan pustaka \texttt{requests} untuk mengambil file \texttt{.sql}. Penggunaan \textit{encoding} \texttt{latin-1} sangat penting karena dump database MySQL sering kali mengandung karakter non-UTF8.
+    \item \textbf{Pembersihan Regex (Regular Expressions):} Karena DuckDB mengikuti standar ANSI SQL yang lebih ketat, skrip melakukan transformasi teks secara massal:
+    \begin{itemize}
+        \item Menghapus blok komentar (\texttt{/* ... */}).
+        \item Mengganti \textit{backticks} (\`) dengan kutip ganda (\texttt{"}) agar nama tabel/kolom dapat dikenali oleh DuckDB.
+        \item Mengonversi tipe data spesifik MySQL (seperti \texttt{mediumtext}) menjadi tipe generik \texttt{TEXT}.
+    \end{itemize}
+    \item \textbf{Pemisahan Statement:} Perintah SQL dipisah berdasarkan karakter titik koma (\texttt{;}) agar dapat dieksekusi satu per satu oleh \textit{engine} DuckDB melalui fungsi \texttt{conn.execute()}.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Fungsi utama kode ini adalah sebagai \textbf{\textit{Source-to-Sink Transformer}}. Kode ini bertugas memigrasikan data dari format \textit{legacy} (MySQL dump) ke format \textit{modern analytical database} (DuckDB file) sambil melakukan normalisasi sintaks secara \textit{on-the-fly}.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} URL publik yang mengarah ke file \texttt{.sql} (MySQL) dan jalur penyimpanan (\texttt{database\_path}) yang telah ditentukan pada langkah sebelumnya.
+    \item \textbf{Output:} File database DuckDB (\texttt{.duckdb}) yang sudah terisi dengan tabel-tabel bisnis (seperti \texttt{customers}, \texttt{orders}, \texttt{products}) beserta datanya, siap untuk ditransformasikan oleh dbt.
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+\begin{enumerate}
+    \item \textbf{Inkompatibilitas Dialek:} Dialek MySQL memiliki banyak fitur non-standar (seperti \texttt{ENGINE=InnoDB} atau \texttt{KEY} tanpa nama) yang akan menyebabkan \textit{error} jika langsung dijalankan di DuckDB. Skrip ini memastikan proses transisi berjalan mulus tanpa intervensi manual.
+    \item \textbf{Kecepatan Pemrosesan:} Melakukan pembersihan data menggunakan regex di memori (\textit{RAM}) jauh lebih cepat dibandingkan melakukan perbaikan manual pada file teks berukuran besar.
+    \item \textbf{Integritas Data:} Dengan menghapus \textit{Foreign Key} dan \textit{Index} non-primer sementara pada saat \textit{ingestion}, kita menghindari masalah \textit{constraint violation} yang sering terjadi karena urutan \textit{insert} data dalam file dump yang tidak selalu berurutan.
+\end{enumerate}
+
+\subsection{Langkah 5: Pembuatan Model DBT Otomatis (\textit{YAML Model Generator})}
+
+Setelah data mentah tersedia di DuckDB, tahap selanjutnya adalah menyusun struktur model dbt. Pada langkah ini, digunakan sebuah skrip generator berbasis YAML untuk membangun file \texttt{.sql} dan \texttt{.yml} secara otomatis ke dalam direktori proyek.
+
+\subsubsection{Potongan Kode}
+
+\begin{lstlisting}[language=Python, caption=DBT Model Generator dari YAML]
+# @title Step 5: DBT Model Generator (YAML Version)
+import requests
+import os
+import re
+import yaml
+
+config_url = "https://raw.githubusercontent.com/.../dbt_manifest.yml"
+
+def setup_from_yaml(url):
+    print(f"Mengunduh manifest YAML...")
+    response = requests.get(url)
+    file_map = yaml.safe_load(response.text)
+
+    # Folder setup
+    base_folders = ["models/staging", "models/dimensions", "models/marts"]
+    for folder in base_folders:
+        os.makedirs(os.path.join(full_project_path, folder), exist_ok=True)
+
+    detected_sources = set()
+
+    for rel_path, content in file_map.items():
+        full_path = os.path.join(full_project_path, rel_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        with open(full_path, "w") as f:
+            f.write(content.strip())
+
+        # Cari source mentah menggunakan Regex
+        sources = re.findall(r"source\s*\(\s*['\"]main['\"]\s*,\s*['\"](\w+)['\"]\s*\)", content)
+        for s in sources: detected_sources.add(s)
+        print(f"   [Created] {rel_path}")
+
+    # Generate sources.yml otomatis
+    if detected_sources:
+        source_tables = "\n".join([f"      - name: {t}" for t in sorted(detected_sources)])
+        yaml_out = f"version: 2\nsources:\n  - name: main\n    tables:\n{source_tables}"
+        with open(os.path.join(full_project_path, "models/staging/sources.yml"), "w") as f:
+            f.write(yaml_out)
+
+setup_from_yaml(config_url)
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{Parsing Manifest:} Skrip menggunakan pustaka \texttt{PyYAML} untuk membaca file manifest eksternal. File ini berisi pemetaan antara jalur file (\textit{relative path}) dan isi logika SQL-nya.
+    \item \textbf{Otomatisasi Direktori:} Kode secara otomatis membuat struktur folder \textit{Medallion Architecture} (\texttt{staging}, \texttt{dimensions}, \texttt{marts}) di dalam folder \texttt{models/}.
+    \item \textbf{Ekstraksi \textit{Source} via Regex:} Skrip memindai setiap file SQL yang dibuat untuk mencari fungsi \texttt{source('main', '...')}. Nama tabel yang ditemukan dikumpulkan ke dalam sebuah \textit{set} untuk menghindari duplikasi.
+    \item \textbf{Auto-Generation \texttt{sources.yml}:} Berdasarkan tabel-tabel yang terdeteksi, skrip menulis file \texttt{sources.yml}. File ini sangat penting bagi dbt untuk mengenali hubungan antara model \textit{staging} dengan tabel mentah di database.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Fungsi utama kode ini adalah sebagai \textbf{\textit{Project Scaffolder}}. Dibandingkan membuat file SQL satu per satu secara manual, kode ini mengotomatiskan pembuatan seluruh arsitektur model data dbt hanya dari satu file konfigurasi terpusat.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} URL ke file \texttt{dbt\_manifest.yml} yang berisi skema transformasi.
+    \item \textbf{Output:} Terbentuknya puluhan file \texttt{.sql} di folder yang tepat serta satu file \texttt{sources.yml} yang telah terkonfigurasi secara otomatis di folder \texttt{staging}.
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+\begin{enumerate}
+    \item \textbf{Skalabilitas:} Dalam proyek data yang besar, membuat model \textit{staging} untuk puluhan tabel secara manual sangat memakan waktu. Otomatisasi ini mempercepat proses \textit{development}.
+    \item \textbf{Konsistensi Struktur:} Dengan menggunakan generator, penamaan folder dan file akan selalu mengikuti standar yang sama, mengurangi risiko \textit{broken references} antar model.
+    \item \textbf{Sinkronisasi \textit{Source}:} Fitur ekstraksi \textit{source} otomatis memastikan bahwa setiap tabel mentah yang dipanggil di model SQL pasti terdaftar di \texttt{sources.yml}. Jika tidak terdaftar, perintah \texttt{dbt run} akan gagal.
+\end{enumerate}
+
+\subsection{Langkah 6: Eksekusi Model dbt (\textit{dbt Run})}
+
+Pada tahap ini, dbt melakukan orkestrasi transformasi data. Kode SQL yang bersifat deklaratif pada folder \texttt{models/} dieksekusi untuk membentuk tabel atau \textit{view} nyata di dalam database DuckDB.
+
+\subsubsection{Potongan Kode}
+Berikut adalah perintah CLI yang dijalankan untuk memproses transformasi data secara bertahap:
+
+\begin{lstlisting}[language=Python, caption=Eksekusi Bertahap Model dbt]
+# @title Step 6: Run dbt Models
+%cd {full_project_path}
+
+# Menjalankan transformasi secara modular
+!dbt run --select staging
+!dbt run --select dimensions
+!dbt run --select marts
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{\texttt{\%cd \{full\_project\_path\}}:} Memastikan \textit{environment} berada di direktori akar proyek dbt. Perintah dbt hanya dapat berjalan jika ia menemukan file \texttt{dbt\_project.yml} di direktori aktif.
+    \item \textbf{\texttt{--select staging}:} Memerintahkan dbt untuk hanya mengeksekusi model yang berada di folder \texttt{staging}. Ini adalah lapisan pertama (\textit{Bronze Layer}) yang membersihkan data mentah.
+    \item \textbf{\texttt{--select dimensions}:} Mengeksekusi lapisan kedua (\textit{Silver Layer}) yang berisi tabel dimensi hasil denormalisasi data staging.
+    \item \textbf{\texttt{--select marts}:} Mengeksekusi lapisan terakhir (\textit{Gold Layer}) yang berisi tabel fakta atau metrik bisnis yang siap dikonsumsi oleh alat visualisasi atau laporan.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Fungsi utama dari kode ini adalah sebagai \textbf{\textit{Orchestrator}}. dbt tidak hanya menjalankan SQL, tetapi juga menangani \textit{Dependency Management}. dbt memahami tabel mana yang harus dibuat lebih dulu berdasarkan referensi fungsi \texttt{ref()} yang ada di dalam skrip SQL.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} File \texttt{.sql} dalam folder \texttt{models/}, konfigurasi \texttt{profiles.yml}, dan data mentah dalam file \texttt{.duckdb}.
+    \item \textbf{Output:} Terbentuknya objek-objek database (Tabel dan \textit{View}) di dalam DuckDB. Log konsol akan menampilkan status tiap model (misalnya: \texttt{OK created view model.staging.stg\_orders}).
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+\begin{enumerate}
+    \item \textbf{Implementasi Medallion Architecture:} Dengan menggunakan \textit{flag} \texttt{--select}, kita memastikan alur data berjalan searah dari yang paling mentah hingga paling matang. Hal ini memudahkan isolasi jika terjadi \textit{error} pada salah satu lapisan.
+    \item \textbf{Efisiensi Waktu dan Sumber Daya:} Jika kita melakukan perubahan hanya pada folder \texttt{marts}, kita tidak perlu menjalankan ulang seluruh proyek. Cukup gunakan seleksi folder untuk memperbarui bagian yang relevan.
+    \item \textbf{Abstraksi DDL:} Pengguna tidak perlu menulis perintah \texttt{CREATE TABLE} atau \texttt{DROP TABLE} secara manual. dbt menangani \textit{Data Definition Language} (DDL) secara otomatis di balik layar, sehingga analis bisa fokus sepenuhnya pada logika transformasi.
+\end{enumerate}
+
+\subsection{Langkah 7: Verifikasi Data dan Analisis Hasil (\textit{Data Checking})}
+
+Setelah siklus transformasi dbt selesai, tahap krusial berikutnya adalah melakukan verifikasi terhadap data yang dihasilkan. Langkah ini memastikan bahwa tabel fakta (\textit{fact tables}) dan dimensi yang dibuat telah berisi data yang akurat dan siap untuk dianalisis.
+
+\subsubsection{Potongan Kode}
+Berikut adalah fungsi Python yang digunakan untuk melakukan kueri langsung ke database DuckDB dan menampilkan hasilnya dalam format tabular:
+
+\begin{lstlisting}[language=Python, caption=Verifikasi Hasil Transformasi dengan Python]
+# @title Step 7: Data Checking
+import duckdb
+import pandas as pd
+
+# Query kustom untuk mengecek hasil
+user_query = "SELECT * FROM fct_order_lines LIMIT 5" 
+
+def run_custom_query(query):
+    conn = duckdb.connect(database_path)
+    try:
+        print(f"Executing: {query}")
+        # Mengonversi hasil kueri langsung ke Pandas DataFrame
+        df = conn.execute(query).df()
+        if df.empty:
+            print("Query berhasil tapi tidak ada data yang ditemukan.")
+        else:
+            display(df)
+    except Exception as e:
+        print(f"Query Error: {e}")
+    finally:
+        conn.close()
+
+run_custom_query(user_query)
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{Integrasi DuckDB dan Pandas:} Skrip ini memanfaatkan kemampuan DuckDB untuk mengekspor hasil kueri secara langsung ke dalam objek \texttt{DataFrame} milik \textit{library} Pandas menggunakan fungsi \texttt{.df()}.
+    \item \textbf{Manajemen Koneksi:} Kode menggunakan blok \texttt{try...except...finally} untuk memastikan bahwa koneksi ke database (\texttt{conn.close()}) selalu ditutup, baik kueri berhasil maupun gagal. Hal ini mencegah terjadinya \textit{database lock} yang sering terjadi pada database berbasis file.
+    \item \textbf{\texttt{display(df)}:} Menggunakan fungsi tampilan interaktif Google Colab untuk menyajikan data dalam bentuk tabel yang mudah dibaca oleh manusia dibandingkan teks mentah.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Fungsi utama kode ini adalah sebagai \textbf{Alat Validasi dan Eksplorasi (\textit{Validation and Exploration Tool})}. Kode ini bertindak sebagai jembatan antara lapisan penyimpanan data (DuckDB) dengan lapisan presentasi (Pandas/Colab), memungkinkan pengembang untuk mengintip isi tabel hasil olahan dbt secara instan.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} \textit{String} kueri SQL standar (misalnya kueri ke tabel \texttt{fct\_order\_lines} atau \texttt{dim\_customer}).
+    \item \textbf{Output:} Tabel interaktif yang menampilkan kolom dan baris data hasil transformasi, atau pesan kesalahan jika sintaks SQL salah atau tabel belum terbentuk.
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+\begin{enumerate}
+    \item \textbf{Umpan Balik Cepat (\textit{Fast Feedback Loop}):} Sebelum dokumen laporan resmi dibuat, analis perlu memastikan tidak ada nilai \texttt{NULL} pada kolom kunci atau kesalahan perhitungan metrik. Menjalankan kueri SQL singkat adalah cara tercepat untuk melakukan hal tersebut.
+    \item \textbf{Kesiapan Analitik:} Dengan mengonversi data ke Pandas DataFrame, kode ini secara teknis telah menyiapkan data untuk proses selanjutnya, seperti pembuatan grafik menggunakan \textit{Matplotlib} atau \textit{Seaborn} yang ada di dalam ekosistem Python.
+    \item \textbf{Transparansi Model:} Memungkinkan pengguna untuk melihat bagaimana data mentah yang di-\textit{ingest} pada Langkah 4 telah berubah bentuk secara signifikan menjadi informasi bisnis yang terstruktur setelah melewati Langkah 6.
+\end{enumerate}
+
+\subsection{Langkah 8: Eksplorasi Wawasan Bisnis (\textit{Business Insight Exploration})}
+
+Setelah data berhasil ditransformasi dan divalidasi, langkah terakhir dalam alur kerja ini adalah melakukan kueri analitik untuk mengekstraksi wawasan bisnis. Pada tahap ini, data yang tersebar di berbagai tabel dihubungkan untuk menghitung metrik seperti pendapatan, keuntungan, dan margin.
+
+\subsubsection{Potongan Kode}
+Berikut adalah kode yang digunakan untuk menghasilkan tabel laporan performa produk:
+
+\begin{lstlisting}[language=Python, caption=Eksplorasi Insight Bisnis dengan SQL dan Pandas]
+# @title Step 8: Explore Business Insight
+import duckdb
+import pandas as pd
+
+# Query untuk analisis Revenue dan Margin per Lini Produk
+insight_query = """
+SELECT 
+    p.product_line, 
+    ROUND(SUM(f.quantity_ordered * f.price_each), 2) as total_revenue, 
+    ROUND(SUM(f.quantity_ordered * (f.price_each - p.buy_price)), 2) as total_profit, 
+    ROUND((SUM(f.quantity_ordered * (f.price_each - p.buy_price)) / 
+           SUM(f.quantity_ordered * f.price_each)) * 100, 2) as margin_pct 
+FROM fct_order_lines f 
+JOIN stg_products p ON f.product_code = p.product_code 
+GROUP BY 1 
+ORDER BY total_revenue DESC
+"""
+
+def run_insight_table(query):
+    conn = duckdb.connect(database_path)
+    try:
+        print("Menghasilkan Tabel Insight Bisnis...")
+        df = conn.execute(query).df()
+
+        if df.empty:
+            print("Tidak ada data yang ditemukan.")
+        else:
+            # Mengatur format angka agar mudah dibaca
+            pd.options.display.float_format = '{:,.2f}'.format
+            display(df)
+    except Exception as e:
+        print(f"Error pada Query: {e}")
+    finally:
+        conn.close()
+
+run_insight_table(insight_query)
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{Logika Bisnis SQL (Baris 7-19):} Kueri ini melakukan operasi JOIN antara tabel fakta \texttt{fct\_order\_lines} (berisi transaksi) dan tabel staging \texttt{stg\_products} (berisi harga beli dasar). Di sini dilakukan kalkulasi metrik finansial:
+    \begin{itemize}
+        \item \textit{Total Revenue}: Perkalian jumlah pesanan dengan harga jual.
+        \item \textit{Total Profit}: Selisih antara harga jual dan harga beli dikalikan jumlah pesanan.
+        \item \textit{Margin \%}: Persentase profit terhadap total pendapatan.
+    \end{itemize}
+    \item \textbf{Pemformatan Data (Baris 29):} Menggunakan \texttt{pd.options.display.float\_format} untuk menambahkan pemisah ribuan (koma) dan membatasi dua angka di belakang desimal. Hal ini sangat penting untuk penyajian data finansial agar lebih profesional dan mudah dibaca.
+    \item \textbf{Grup dan Urutan:} Mengelompokkan data berdasarkan lini produk (\texttt{GROUP BY 1}) dan mengurutkannya dari pendapatan tertinggi ke terendah.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Fungsi utama kode ini adalah sebagai \textbf{Lapisan Penyajian Informasi (\textit{Information Delivery Layer})}. Kode ini mengubah data terstruktur yang dihasilkan oleh dbt menjadi laporan eksekutif yang siap digunakan oleh manajer atau pemilik bisnis untuk mengambil keputusan strategis.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} Kueri SQL agregasi yang kompleks dan akses ke file database \texttt{.duckdb}.
+    \item \textbf{Output:} Laporan performa lini produk yang berisi kolom \texttt{product\_line}, \texttt{total\_revenue}, \texttt{total\_profit}, dan \texttt{margin\_pct}.
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+\begin{enumerate}
+    \item \textbf{Demonstrasi Nilai dbt:} Kode ini membuktikan bahwa arsitektur tabel fakta dan dimensi yang dibangun dengan dbt dapat memudahkan penulisan kueri yang kompleks menjadi lebih sederhana dan efisien.
+    \item \textbf{Decision Making}: Dengan mengetahui margin per lini produk (misalnya membandingkan \textit{Classic Cars} dengan \textit{Vintage Cars}), perusahaan dapat menentukan produk mana yang paling menguntungkan, bukan hanya yang memiliki omzet besar.
+    \item \textbf{Fleksibilitas Analitik:} Dengan menggunakan Pandas di dalam Google Colab, pengguna dapat dengan cepat mengubah parameter kueri atau bahkan menambahkan visualisasi grafik setelah tabel ditampilkan.
+\end{enumerate}
+
+\subsection{Langkah 9: Dokumentasi Otomatis dan Silsilah Data (\textit{dbt Docs})}
+
+Tahap akhir dari siklus pengembangan dbt adalah pembuatan dokumentasi. dbt memiliki kemampuan unik untuk menghasilkan situs web statis yang mendokumentasikan setiap model, kolom, dan hubungan antar tabel secara otomatis.
+
+\subsubsection{Potongan Kode}
+Berikut adalah perintah untuk memproduksi dan menampilkan dokumentasi di lingkungan Google Colab:
+
+\begin{lstlisting}[language=Python, caption=Generasi Dokumentasi dan Lineage Graph]
+# @title Step 9: Generate dbt Docs
+# 1. Menghasilkan file metadata dokumentasi
+!dbt docs generate
+
+from google.colab import output
+# 2. Forward port agar bisa diakses dari browser luar
+output.serve_kernel_port_as_window(8088)
+
+# 3. Menjalankan server dokumentasi
+!dbt docs serve --port 8088
+\end{lstlisting}
+
+\subsubsection{Penjelasan Potongan Kode}
+\begin{itemize}
+    \item \textbf{\texttt{dbt docs generate}:} Instruksi ini memerintahkan dbt untuk memindai seluruh proyek dan database untuk menghasilkan file \texttt{manifest.json} dan \texttt{catalog.json}. File-file ini berisi informasi lengkap mengenai skema, tipe data, dan dependensi antar model.
+    \item \textbf{\texttt{output.serve\_kernel\_port\_as\_window(8088)}:} Karena Google Colab berjalan di mesin virtual terisolasi, port lokal tidak bisa diakses langsung. Fungsi ini melakukan \textit{port forwarding} agar server dokumentasi dapat dibuka di tab browser baru pengguna.
+    \item \textbf{\texttt{dbt docs serve --port 8088}:} Menjalankan server web ringan yang menyajikan antarmuka visual dokumentasi dbt melalui port 8088.
+\end{itemize}
+
+\subsubsection{Fungsi Kode}
+Fungsi utama kode ini adalah sebagai \textbf{Sistem Katalog Data Otomatis}. Kode ini menghilangkan kebutuhan untuk menulis dokumentasi manual di dokumen terpisah. Paling penting, dbt menghasilkan \textit{Lineage Graph} yang memvisualisasikan aliran data dari sumber (\textit{source}) menuju \textit{staging}, kemudian ke \textit{dimension}, hingga berakhir di \textit{marts}.
+
+\subsubsection{Input dan Output}
+\begin{itemize}
+    \item \textbf{Input:} Metadata proyek dalam folder \texttt{target/} dan skema database DuckDB.
+    \item \textbf{Output:} Sebuah situs web interaktif yang menampilkan deskripsi tabel, daftar kolom, tipe data, kode SQL sumber, dan grafik silsilah data (*Lineage Graph*).
+\end{itemize}
+
+\subsubsection{Alasan Menggunakan Kode Tersebut}
+\begin{enumerate}
+    \item \textbf{Transparansi Data:} Dengan \textit{Lineage Graph}, analis dapat dengan mudah melacak dari mana sebuah angka di laporan berasal. Jika terjadi kesalahan pada tabel fakta, analis dapat melihat tabel \textit{staging} mana yang menjadi sumber masalahnya.
+    \item \textbf{Kemudahan Audit:} Dokumentasi ini mencakup skrip SQL asli yang membentuk setiap tabel, sehingga memudahkan auditor atau rekan tim lainnya untuk meninjau logika transformasi tanpa harus membuka file kode satu per satu.
+    \item \textbf{Efisiensi Komunikasi:} Dokumentasi ini berfungsi sebagai \textit{single source of truth} bagi tim data dan pemangku kepentingan bisnis untuk memahami definisi data yang digunakan dalam organisasi.
+\end{enumerate}
