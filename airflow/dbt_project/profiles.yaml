@@ -1,0 +1,12 @@
+# dbt_project/profiles.yml
+my_healthcare_project: # sesuaikan dengan nama profile di dbt_project.yml
+  outputs:
+    docker_env:
+      type: postgres
+      host: postgres # <-- Harus 'postgres' karena sesama container docker, bukan localhost
+      user: airflow
+      pass: airflow
+      port: 5432
+      dbname: airflow
+      schema: public # tempat menyimpan hasil dimensi & fakta
+  target: docker_env
