@@ -1,4 +1,4 @@
-\chapter{ DBT (Data Build Tool): The Modern Way to Transform Data}
+\chapter{ Pendahuluan}
 \begin{mybox}{Anggota kelompok}
 \begin{enumerate}
     \itemsep0em
@@ -14,9 +14,7 @@
 %  BAB I: PENDAHULUAN
 % ============================================================
  
-\section{Pendahuluan}
- 
-\subsection{Deskripsi Domain}
+\section{Deskripsi Domain}
  
 Domain yang menjadi fokus dalam penelitian ini adalah bidang kesehatan (\textit{healthcare}), khususnya terkait pengelolaan data klinis pasien penderita diabetes yang menjalani terapi obat antidiabetik. Domain ini mencakup tiga aspek utama yang saling terintegrasi, yaitu kunjungan pasien (\textit{patient encounter}), diagnosis klinis, serta tindakan medis berupa prosedur diagnostik dan operatif.
  
@@ -26,7 +24,7 @@ Salah satu indikator kunci dalam manajemen terapi obat kronis seperti diabetes a
  
 Dataset yang digunakan dalam penelitian ini merupakan dataset sintetis yang dibangun berdasarkan struktur dan distribusi statistik data nyata. Dataset ini menggabungkan dua sumber data, yaitu data klinis pasien dari file \texttt{healthcareTest.csv} yang memuat informasi demografis, komorbiditas, utilisasi layanan, dan biaya kesehatan, serta data tindakan medis dari file \texttt{kaggle\_medical\_procedures\_dummy\@.sql} yang memuat prosedur-prosedur medis berstandar CPT (\textit{Current Procedural Terminology}) dan ICD-10-PCS\@.
  
-\subsection{Gambaran Umum Dataset}
+\section{Gambaran Umum Dataset}
  
 Berikut adalah ringkasan karakteristik dataset yang digunakan dalam penelitian ini:
  
@@ -73,7 +71,7 @@ Tindakan Medis (dari SQL)    & 6  & \texttt{Procedure\_ID}, \texttt{Procedure\_C
 \end{tabularx}
 \end{table}
  
-\subsection{Latar Belakang}
+\section{Latar Belakang}
  
 Diabetes melitus merupakan salah satu penyakit tidak menular dengan prevalensi tertinggi di dunia. Menurut data International Diabetes Federation (IDF), terdapat lebih dari 537 juta orang dewasa yang hidup dengan diabetes pada tahun 2021, dan angka ini diproyeksikan meningkat menjadi 784 juta pada tahun 2045. Di Indonesia, diabetes menempati posisi kesebelas sebagai penyakit dengan beban kesehatan tertinggi secara global, dengan estimasi 19,5 juta penderita pada tahun 2021.
  
@@ -85,7 +83,7 @@ Data Warehouse dalam konteks kesehatan berfungsi sebagai repositori terpusat yan
  
 Penggunaan dataset sintetis dipilih karena data klinis nyata umumnya bersifat sensitif dan terlindungi regulasi privasi seperti HIPAA (\textit{Health Insurance Portability and Accountability Act}) di Amerika Serikat dan peraturan setara di negara-negara lain. Dataset sintetis yang dibangun menggunakan distribusi statistik dari data nyata memungkinkan pengembangan dan pengujian sistem DWBI tanpa risiko pelanggaran privasi, namun tetap mempertahankan karakteristik statistik dan pola klinis yang representatif.
  
-\subsection{Identifikasi Permasalahan}
+\section{Identifikasi Permasalahan}
  
 Berdasarkan uraian latar belakang di atas, dapat diidentifikasi beberapa permasalahan utama sebagai berikut:
  
@@ -96,7 +94,7 @@ Berdasarkan uraian latar belakang di atas, dapat diidentifikasi beberapa permasa
     \item Sulitnya mengakses data klinis nyata untuk keperluan pengembangan dan pengujian sistem karena batasan privasi dan regulasi, sehingga diperlukan dataset sintetis yang representatif.
 \end{enumerate}
  
-\subsection{Tujuan}
+\section{Tujuan}
  
 \subsubsection{Tujuan Umum}
  
