@@ -145,12 +145,12 @@ Berdasarkan rancangan \textit{fact table} dan \textit{dimension table} di atas, 
 \textbf{Tabel} & \textbf{Jenis} & \textbf{Relasi / Keterangan} \\
 \midrule
 \texttt{Fact\_MedicalEncounter} & Fact Table & Tabel pusat. Berisi 22 \textit{measures} dan 4 FK yang menghubungkan ke semua dimensi \\
-\texttt{Dim\_Pasien}   & Dimension & FK: \texttt{patIndex} $\to$ Fact. SCD2. Berisi profil klinis dan demografis pasien \\
-\texttt{Dim\_Waktu}    & Dimension & FK: \texttt{date\_key} $\to$ Fact. SCD0. Berisi hierarki waktu dari hari hingga tahun \\
-\texttt{Dim\_Prosedur} & Dimension & FK: \texttt{procedure\_key} $\to$ Fact. SCD1. Berisi detail kode CPT/ICD-10 dan kategori prosedur \\
-\texttt{Dim\_Obat}     & Dimension & FK: \texttt{drug\_key} $\to$ Fact. SCD1. Berisi kelas obat, rasio generik, dan kategori PDC \\
-\texttt{Dim\_Asuransi} & Dimension & FK: \texttt{payer\_key} $\to$ Fact. SCD2. Berisi jenis pembayar dan tipe produk asuransi \\
-\texttt{Dim\_Wilayah}  & Dimension & FK: \texttt{region\_key} $\to$ Fact. SCD0. Berisi kode dan nama wilayah pasien \\
+\texttt{Dim\_Pasien}   & Dimension & FK\@: \texttt{patIndex} $\to$ Fact. SCD2. Berisi profil klinis dan demografis pasien \\
+\texttt{Dim\_Waktu}    & Dimension & FK\@: \texttt{date\_key} $\to$ Fact. SCD0. Berisi hierarki waktu dari hari hingga tahun \\
+\texttt{Dim\_Prosedur} & Dimension & FK\@: \texttt{procedure\_key} $\to$ Fact. SCD1. Berisi detail kode CPT/ICD-10 dan kategori prosedur \\
+\texttt{Dim\_Obat}     & Dimension & FK\@: \texttt{drug\_key} $\to$ Fact. SCD1. Berisi kelas obat, rasio generik, dan kategori PDC \\
+\texttt{Dim\_Asuransi} & Dimension & FK\@: \texttt{payer\_key} $\to$ Fact. SCD2. Berisi jenis pembayar dan tipe produk asuransi \\
+\texttt{Dim\_Wilayah}  & Dimension & FK\@: \texttt{region\_key} $\to$ Fact. SCD0. Berisi kode dan nama wilayah pasien \\
 \bottomrule
 \end{tabularx}
 \end{table}
