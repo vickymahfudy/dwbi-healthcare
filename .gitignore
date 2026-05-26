@@ -100,7 +100,7 @@ dbt_project/dbt_packages/
 dbt_project/logs/
 dbt_project/dbt_modules/
 dbt_project/.user.yml
-dbt_project/profiles.yml
+# dbt_project/profiles.yml
 
 # ============================================
 # Database
