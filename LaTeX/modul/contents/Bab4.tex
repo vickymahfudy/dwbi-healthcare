@@ -1,0 +1,188 @@
+\chapter{Synthetic Data Generation}
+
+% ============================================================
+%  BAB IV: SYNTHETIC DATA GENERATION
+% ============================================================
+
+ 
+\section{Strategi Generator Data Sintetik}
+ 
+Proses perancangan ekosistem data rumah sakit dalam skala volume 12.000 transaksi mensyaratkan strategi simulasi logis yang merepresentasikan probabilitas keadaan lapangan yang sesungguhnya (\textit{Constraint Enforcement}). Metodologi augmentasi Python berlandaskan aturan berikut:
+ 
+\begin{itemize}
+    \item \textbf{Sinergi Kredensial Tarif Medis:} Beban tarif pada \texttt{biaya\_konsultasi} bukanlah angka yang diacak sepenuhnya, melainkan dikunci berdasarkan nilai kamus tarif spesialisasi.
+    \item \textbf{Isolasi Logika Fasilitas Non-Inap:} Jika alokasi unit merujuk ke ``IGD'' atau ``Rawat Jalan'', algoritma menginstruksikan kalkulasi durasi inap absolut di angka 0 dan tidak membebankan biaya sewa ruangan.
+    \item \textbf{Pembobotan Pemulihan Pasien Inap:} Pasien yang dialokasikan ke ``Rawat Inap'' memiliki hari rawat yang disimulasikan (1--14 hari) dan luaran klinis yang ditentukan oleh probabilitas empiris: 80\% dinyatakan Sembuh, dan hanya sisanya Dirujuk/Meninggal.
+    \item \textbf{Logika Integritas Keuangan (\textit{Billing}):} \texttt{total\_biaya} dieksekusi secara matematis ketat melalui penjumlahan komponen linier: jasa dokter + obat farmasi + tindakan alat + sewa ruangan, meniadakan kesalahan agregasi fiskal pada Data Warehouse.
+\end{itemize}
+ 
+\section{Kode Generator Utama}
+ 
+Berikut adalah \textit{source code} Python yang dikompilasi secara deterministik untuk merakit data sumber transaksi rumah sakit operasional ke dalam direktori file CSV:
+ 
+\begin{lstlisting}[language=Python, caption=Generator Data Sintetik Operasional Rumah Sakit]
+import os
+import random
+from datetime import datetime, timedelta
+import pandas as pd
+from faker import Faker
+ 
+# Inisialisasi Faker dengan lokalisasi Indonesia
+fake = Faker('id_ID')
+Faker.seed(42)
+random.seed(42)
+ 
+# Konfigurasi Jumlah Data
+TOTAL_PASIEN = 2500
+TOTAL_DOKTER = 80
+TOTAL_TRANSAKSI_KUNJUNGAN = 12000
+ 
+print("Memulai pembuatan dataset sintetik rumah sakit...")
+ 
+# ==========================================
+# 1. GENERATE TABEL SUMBER: PASIEN
+# ==========================================
+data_pasien = []
+golongan_darah_opsi = ['A', 'B', 'AB', 'O']
+jenis_kelamin_opsi = ['Laki-laki', 'Perempuan']
+ 
+for pasien_id in range(1, TOTAL_PASIEN + 1):
+    jk = random.choice(jenis_kelamin_opsi)
+    nama = fake.name_male() if jk == 'Laki-laki' else fake.name_female()
+    data_pasien.append({
+        'id_pasien'      : f'PSN-{pasien_id:05d}',
+        'nama_pasien'    : nama,
+        'jenis_kelamin'  : jk,
+        'tanggal_lahir'  : fake.date_of_birth(minimum_age=0, maximum_age=85)
+                               .strftime('%Y-%m-%d'),
+        'alamat'         : fake.street_address(),
+        'kota'           : fake.city(),
+        'golongan_darah' : random.choice(golongan_darah_opsi)
+    })
+df_pasien = pd.DataFrame(data_pasien)
+ 
+# ==========================================
+# 2. GENERATE TABEL SUMBER: DOKTER
+# ==========================================
+data_dokter = []
+spesialisasi_opsi = {
+    'Umum': 30, 'Anak': 40, 'Penyakit Dalam': 50,
+    'Bedah': 60, 'Jantung': 80, 'Saraf': 70, 'Mata': 45
+}
+ 
+for dokter_id in range(1, TOTAL_DOKTER + 1):
+    spesialisasi = random.choice(list(spesialisasi_opsi.keys()))
+    biaya_konsultasi = spesialisasi_opsi[spesialisasi] * 1000
+    data_dokter.append({
+        'id_dokter'           : f'DKT-{dokter_id:03d}',
+        'nama_dokter'         : fake.name(),
+        'spesialisasi'        : spesialisasi,
+        'biaya_konsultasi'    : biaya_konsultasi,
+        'nomor_izin_praktek'  : f'STR-{random.randint(100000, 999999)}'
+    })
+df_dokter = pd.DataFrame(data_dokter)
+ 
+# ==========================================
+# 3. GENERATE TABEL SUMBER: KUNJUNGAN
+# ==========================================
+data_kunjungan = []
+tipe_fasilitas_opsi   = ['IGD', 'Rawat Jalan', 'Rawat Inap']
+status_keluar_opsi    = ['Sembuh', 'Dirujuk', 'Pulang Paksa', 'Meninggal']
+metode_pembayaran_opsi = ['BPJS', 'Asuransi Swasta', 'Mandiri']
+start_date = datetime(2025, 1, 1)
+ 
+for kunjungan_id in range(1, TOTAL_TRANSAKSI_KUNJUNGAN + 1):
+    pasien           = random.choice(data_pasien)
+    dokter           = random.choice(data_dokter)
+    tipe_fasilitas   = random.choice(tipe_fasilitas_opsi)
+    metode_pembayaran = random.choice(metode_pembayaran_opsi)
+ 
+    # Logika Lama Rawat Inap (Length of Stay)
+    if tipe_fasilitas == 'Rawat Inap':
+        lama_rawat    = random.randint(1, 14)
+        status_keluar = random.choices(
+            status_keluar_opsi, weights=[80, 12, 6, 2])[0]
+        biaya_kamar   = lama_rawat * random.choice([250000, 500000, 1200000])
+    else:
+        lama_rawat    = 0
+        status_keluar = 'Sembuh'
+        biaya_kamar   = 0
+ 
+    # Simulasi Komponen Biaya Medis
+    biaya_konsul    = dokter['biaya_konsultasi']
+    biaya_obat      = (random.randint(50000, 750000)
+                       if tipe_fasilitas != 'IGD'
+                       else random.randint(30000, 200000))
+    biaya_tindakan  = (random.choice([0, 150000, 300000, 1500000])
+                       if tipe_fasilitas in ['IGD', 'Rawat Inap'] else 0)
+    total_biaya     = biaya_konsul + biaya_obat + biaya_tindakan + biaya_kamar
+    tgl_kunjungan   = start_date + timedelta(days=random.randint(0, 450))
+ 
+    data_kunjungan.append({
+        'id_kunjungan'      : f'TX-{kunjungan_id:06d}',
+        'id_pasien'         : pasien['id_pasien'],
+        'id_dokter'         : dokter['id_dokter'],
+        'tanggal_kunjungan' : tgl_kunjungan.strftime('%Y-%m-%d %H:%M:%S'),
+        'tipe_fasilitas'    : tipe_fasilitas,
+        'lama_rawat_hari'   : lama_rawat,
+        'status_keluar'     : status_keluar,
+        'metode_pembayaran' : metode_pembayaran,
+        'biaya_konsultasi'  : biaya_konsul,
+        'biaya_obat'        : biaya_obat,
+        'biaya_tindakan'    : biaya_tindakan,
+        'biaya_kamar'       : biaya_kamar,
+        'total_biaya'       : total_biaya
+    })
+df_kunjungan = pd.DataFrame(data_kunjungan)
+ 
+# ==========================================
+# 4. MENYIMPAN DATA KE CSV
+# ==========================================
+OUTPUT_DIR = '/opt/airflow/data_generator/output'
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+ 
+df_pasien.to_csv(os.path.join(OUTPUT_DIR, 'source_pasien.csv'), index=False)
+df_dokter.to_csv(os.path.join(OUTPUT_DIR, 'source_dokter.csv'), index=False)
+df_kunjungan.to_csv(os.path.join(OUTPUT_DIR, 'source_kunjungan.csv'), index=False)
+ 
+print("Pembuatan dataset selesai!")
+print(f"   - Total Pasien   : {len(df_pasien)} baris")
+print(f"   - Total Dokter   : {len(df_dokter)} baris")
+print(f"   - Total Kunjungan: {len(df_kunjungan)} baris")
+\end{lstlisting}
+ 
+\section{Contoh Data Mentah (Output source\_kunjungan.csv)}
+ 
+Berikut adalah cuplikan simulasi hasil output transaksi yang memperlihatkan keutuhan integritas perhitungan \textit{billing} matematis dalam \textit{pipeline} DWBI ini.
+ 
+\begin{table}[H]
+\centering
+\caption{Contoh Data Mentah Transaksi Kunjungan}
+\small
+\begin{tabularx}{\linewidth}{p{2cm}p{2cm}p{0.8cm}p{1.8cm}p{1.8cm}p{2cm}p{1.8cm}X}
+\toprule
+\textbf{ID Kunjungan} & \textbf{Fasilitas} & \textbf{LOS} & \textbf{Biaya Konsul} & \textbf{Biaya Obat} & \textbf{Biaya Tindakan} & \textbf{Biaya Kamar} & \textbf{Total (Rp)} \\
+\midrule
+TX-000001 & Rawat Inap   & 4 & 50.000  & 630.000 & 300.000   & 1.000.000 & 1.980.000 \\
+TX-000002 & IGD          & 0 & 80.000  & 75.000  & 1.500.000 & 0         & 1.655.000 \\
+TX-000003 & Rawat Jalan  & 0 & 30.000  & 125.000 & 0         & 0         & 155.000   \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+\section{Skema Sumber (Data Dictionary)}
+ 
+Skema akhir luaran generator diklasifikasikan menjadi tiga repositori utama yang saling terhubung menggunakan \textit{Primary Key} (PK) dan \textit{Foreign Key} (FK).
+ 
+\subsubsection{Sumber 1 — source\_pasien.csv}
+ 
+Data master yang berisi informasi profil identitas pasien, meliputi: \texttt{id\_pasien} (PK), \texttt{nama\_pasien}, \texttt{jenis\_kelamin}, \texttt{tanggal\_lahir}, \texttt{alamat}, \texttt{kota}, dan \texttt{golongan\_darah}.
+ 
+\subsubsection{Sumber 2 — source\_dokter.csv}
+ 
+Data master yang berisi parameter profesi kesehatan dokter, meliputi: \texttt{id\_dokter} (PK), \texttt{nama\_dokter}, \texttt{spesialisasi}, \texttt{biaya\_konsultasi}, dan \texttt{nomor\_izin\_praktek}.
+ 
+\subsubsection{Sumber 3 — source\_kunjungan.csv}
+ 
+Data transaksi historis operasional yang menautkan kunci referensial dan parameter beban tagihan pasien, meliputi: \texttt{id\_kunjungan} (PK), \texttt{id\_pasien} (FK), \texttt{id\_dokter} (FK), \texttt{tanggal\_kunjungan}, \texttt{tipe\_fasilitas}, \texttt{lama\_rawat\_hari}, \texttt{status\_keluar}, \texttt{metode\_pembayaran}, \texttt{biaya\_konsultasi}, \texttt{biaya\_obat}, \texttt{biaya\_tindakan}, \texttt{biaya\_kamar}, dan \texttt{total\_biaya}.
+ 

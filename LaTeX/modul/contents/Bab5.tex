@@ -1,0 +1,92 @@
+\chapter{Implementasi Orkestrasi Apache Airflow}
+
+% ============================================================
+%  BAB V: IMPLEMENTASI ORKESTRASI APACHE AIRFLOW
+% ============================================================
+ 
+\section{Arsitektur DAG (Directed Acyclic Graph)}
+ 
+Apache Airflow bertindak sebagai mesin pengatur dan penjadwal utama (\textit{enterprise orchestrator}) untuk mengotomatisasi seluruh siklus data dalam sistem DWBI rumah sakit ini. Di dalam Airflow, rangkaian alur kerja didefinisikan sebagai \textbf{Directed Acyclic Graph (DAG)} bernama \texttt{02\_healthcare\_data\_pipeline}. Karakteristik \textit{"directed"} menandakan alur eksekusi memiliki arah ketergantungan yang jelas dari awal hingga akhir, sedangkan \textit{"acyclic"} menjamin bahwa tidak ada tugas yang berjalan berulang atau membentuk putaran tak berujung (\textit{infinite loop}).
+ 
+Konfigurasi parameter operasional dan manajemen risiko dari DAG ini dirancang menggunakan argumen bawaan (\textit{default args}) sebagai berikut:
+ 
+\begin{itemize}
+    \item \textbf{Owner (\texttt{kelompok\_healthcare}):} Digunakan sebagai identitas pengelola aset \textit{pipeline} untuk mempermudah kategorisasi, audit log, dan pemfilteran pada dasbor Web UI Airflow.
+    \item \textbf{Depends on Past (False):} Keberhasilan eksekusi \textit{pipeline} hari ini tidak digantungkan pada status keberhasilan eksekusi hari sebelumnya, sehingga mencegah kemacetan massal (\textit{data blocking}).
+    \item \textbf{Retries (1) \& Retry Delay (2 menit):} Jika sebuah \textit{task} gagal akibat masalah jaringan atau database PostgreSQL yang sedang sibuk, Airflow akan menjadwalkan ulang eksekusi otomatis satu kali lagi setelah jeda 2 menit.
+    \item \textbf{Schedule Interval (None) \& Catchup (False):} \textit{Pipeline} dikonfigurasi untuk berjalan berdasarkan pemicu manual (\textit{Manual Trigger}). Penonaktifan \textit{catchup} mencegah Airflow melakukan eksekusi susulan (\textit{backfilling}) terhadap jadwal historis masa lalu.
+\end{itemize}
+ 
+\section{Topologi dan Penjelasan Task Dependencies}
+ 
+\textit{Pipeline} dipecah menjadi 4 \textit{task} diskrit yang dikelola oleh dua operator utama: \texttt{BashOperator} (untuk mengeksekusi skrip eksternal di lingkungan OS) dan \texttt{PythonOperator} (untuk mengeksekusi fungsi di dalam memori Python). Keempat \textit{task} diikat menggunakan operator dependensi sekuensial linear (\texttt{>>}), membentuk urutan kronologis sebagai berikut:
+ 
+\textbf{Task 1: \texttt{run\_data\_generator} (BashOperator)}
+ 
+Airflow memicu lingkungan \textit{shell} Linux untuk menjalankan skrip pembuat data sintetik.
+ 
+\begin{lstlisting}[language=Python, caption=Definisi Task run\_data\_generator]
+task_generate_data = BashOperator(
+    task_id='run_data_generator',
+    bash_command='python /opt/airflow/data_generator/src/generator.py',
+)
+\end{lstlisting}
+ 
+Airflow memastikan file \texttt{generator.py} selesai dieksekusi 100\% dan menghasilkan 3 file CSV di folder \textit{shared storage} sebelum mengizinkan aliran data berpindah ke tahap berikutnya.
+ 
+\textbf{Task 2: \texttt{ingest\_csv\_to\_database} (PythonOperator)}
+ 
+Airflow memanggil fungsi Python internal untuk memindahkan data dari file \texttt{.csv} ke tabel relasional database.
+ 
+\begin{lstlisting}[language=Python, caption=Definisi Task ingest\_csv\_to\_database]
+task_ingest_data = PythonOperator(
+    task_id='ingest_csv_to_database',
+    python_callable=ingest_csv_to_postgres,
+)
+\end{lstlisting}
+ 
+Fungsi \texttt{ingest\_csv\_to\_postgres} menggunakan \textit{connection string} PostgreSQL \texttt{postgresql+psycopg2://airflow:airflow@postgres:5432/airflow} untuk membaca CSV via \textit{Dataframe} Pandas dan menuliskannya ke tabel \texttt{src\_pasien}, \texttt{src\_dokter}, dan \texttt{src\_kunjungan} dengan metode \textit{overwrite} (\texttt{if\_exists='replace'}).
+ 
+\textbf{Task 3: \texttt{dbt\_run\_transformation} (BashOperator)}
+ 
+Airflow memerintahkan \texttt{dbt} sebagai \textit{third-party tool} untuk memproses transformasi.
+ 
+\begin{lstlisting}[language=Python, caption=Definisi Task dbt\_run\_transformation]
+task_dbt_run = BashOperator(
+    task_id='dbt_run_transformation',
+    bash_command=(
+        'cd /opt/airflow/dbt_project && '
+        'dbt run --target docker_env --profiles-dir .'
+    ),
+)
+\end{lstlisting}
+ 
+Airflow mengirimkan sinyal perintah CLI \texttt{dbt run} untuk memproses pembentukan \textit{Star Schema} (Tabel Fakta dan Dimensi) di dalam database.
+ 
+\textbf{Task 4: \texttt{dbt\_data\_quality\_test} (BashOperator)}
+ 
+Airflow mengeksekusi proses pengujian kualitas data sebelum laporan siap dikonsumsi.
+ 
+\begin{lstlisting}[language=Python, caption=Definisi Task dbt\_data\_quality\_test]
+task_dbt_test = BashOperator(
+    task_id='dbt_data_quality_test',
+    bash_command=(
+        'cd /opt/airflow/dbt_project && '
+        'dbt test --target docker_env --profiles-dir .'
+    ),
+)
+\end{lstlisting}
+ 
+Jika pengujian integritas (seperti deteksi \textit{null value} atau duplikasi kunci utama) menemukan kegagalan, Airflow akan menandai \textit{task} ini berwarna merah (\textit{Failed}) dan menghentikan seluruh \textit{pipeline}.
+ 
+\section{Panduan Dokumentasi Antarmuka Airflow UI}
+ 
+Untuk membuktikan bahwa arsitektur orkestrasi ini berjalan dengan sukses di lingkungan Docker, lampirkan beberapa tangkapan layar dari Apache Airflow Web UI (akses via \texttt{localhost:8080}) dengan penjelasan sebagai berikut:
+ 
+\begin{itemize}
+    \item \textbf{Screenshot Graph View:} Buka dasbor DAG \texttt{02\_healthcare\_data\_pipeline}, pilih tab \textit{Graph}. Tangkap layar seluruh diagram kotak alur kerja. Seluruh bingkai kotak (\textit{node}) harus berwarna hijau tua (\textit{dark green}) sebagai indikator seluruh \textit{script} sukses dieksekusi tanpa interupsi.
+ 
+    \item \textbf{Screenshot Grid / Tree View:} Klik tab \textit{Grid} di dasbor Airflow. Ambil gambar matriks kotak-kotak kecil historis eksekusi. Lajur kotak vertikal berwarna hijau penuh menandakan keberhasilan \textit{run} secara utuh. Melalui tampilan ini, pengelola Data Warehouse dapat memantau durasi performa kecepatan eksekusi tiap \textit{task} dan mendeteksi \textit{bottleneck}.
+ 
+    \item \textbf{Screenshot Task Log:} Klik salah satu kotak \textit{task}, misalnya \texttt{run\_data\_generator} atau \texttt{ingest\_csv\_to\_database}, lalu klik tombol \textit{Log}. Ambil tangkapan layar baris teks keluaran terminal (\textit{stdout}). Dokumen log menunjukkan status keluaran sistem yang bersih dengan kode balik \texttt{INFO - Main task process exited with return code 0}, membuktikan Airflow berhasil menyelesaikan pemanggilan fungsi eksternal dengan sukses.
+\end{itemize}
