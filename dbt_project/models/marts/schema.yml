@@ -94,37 +94,32 @@ models:
         tests:
           - not_null
           - relationships:
-              arguments:
-                to: ref('dim_pasien')
-                field: pasien_key
+              to: ref('dim_pasien')
+              field: pasien_key
       - name: dokter_key
         tests:
           - not_null
           - relationships:
-              arguments:
-                to: ref('dim_dokter')
-                field: dokter_key
+              to: ref('dim_dokter')
+              field: dokter_key
       - name: date_key
         tests:
           - not_null
           - relationships:
-              arguments:
-                to: ref('dim_waktu')
-                field: date_key
+              to: ref('dim_waktu')
+              field: date_key
       - name: fasilitas_key
         tests:
           - not_null
           - relationships:
-              arguments:
-                to: ref('dim_fasilitas')
-                field: fasilitas_key
+              to: ref('dim_fasilitas')
+              field: fasilitas_key
       - name: bayar_key
         tests:
           - not_null
           - relationships:
-              arguments:
-                to: ref('dim_pembayaran')
-                field: bayar_key
+              to: ref('dim_pembayaran')
+              field: bayar_key
       - name: total_biaya
         description: "Akumulasi tagihan akhir (konsultasi + obat + tindakan + kamar)"
         tests:
