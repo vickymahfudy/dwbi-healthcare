@@ -14,183 +14,394 @@
 %  BAB III: PERANCANGAN DIMENSIONAL MODELING
 % ============================================================
  
-% \section{Perancangan Dimensional Modeling}
- 
 \section{Penentuan Grain}
  
-\textit{Grain} mendefinisikan tingkat granularitas data yang akan disimpan dalam \textit{fact table}. Penentuan \textit{grain} yang tepat adalah langkah paling fundamental dalam perancangan \textit{dimensional model} karena menentukan semua hal lain dalam desain, mulai dari \textit{measures} yang bisa dihitung hingga dimensi yang diperlukan.
+\textit{Grain} adalah pernyataan tegas mengenai apa yang direpresentasikan oleh satu baris data (\textit{record}) di dalam tabel fakta (\textit{fact table}). Penentuan \textit{grain} yang tepat merupakan langkah paling kritis dalam perancangan model dimensional karena secara langsung akan menentukan \textit{measures} apa saja yang dapat dihitung, dimensi apa saja yang diperlukan, serta tingkat kedalaman analisis yang dapat dieksplorasi.
  
 \begin{table}[H]
 \centering
-\caption{Definisi Grain Fact Table}
+\caption{Definisi Grain Fact Table Operasional}
 \begin{tabularx}{\linewidth}{lX}
 \toprule
-\textbf{Komponen Grain} & \textbf{Definisi / Nilai} \\
+\textbf{Komponen} & \textbf{Definisi / Nilai} \\
 \midrule
-Subjek Ukur            & Satu transaksi prosedur medis yang dialami satu pasien antidiabetik \\
-Granularitas Waktu     & Tingkat harian (per tanggal prosedur medis: \texttt{Procedure\_Date}) \\
-Granularitas Pasien    & Per pasien unik (\texttt{patIndex} / \texttt{patient\_key}) \\
-Granularitas Prosedur  & Per kode prosedur unik (\texttt{Procedure\_Code} \-- CPT / ICD-10) \\
-Pernyataan Grain       & Satu baris = satu tindakan medis yang dilakukan pada satu pasien pada satu tanggal tertentu, beserta konteks klinis lengkap pasien tersebut (kepatuhan obat, biaya, komorbiditas) \\
-Implikasi              & Satu pasien dapat memiliki lebih dari satu baris jika menjalani lebih dari satu prosedur medis \\
+Subjek Ukur            & Satu transaksi kunjungan pelayanan medis yang dialami pasien dari satu dokter pada satu tanggal tertentu \\
+Granularitas Waktu     & Tingkat harian / stempel waktu berdasarkan \texttt{tanggal\_kunjungan} \\
+Granularitas Pasien    & Per pasien unik, diidentifikasi oleh kunci \texttt{id\_pasien} \\
+Granularitas Dokter    & Per dokter unik, diidentifikasi oleh kunci \texttt{id\_dokter} \\
+Pernyataan Grain       & Satu baris mewakili satu transaksi kunjungan medis seorang pasien ke suatu unit fasilitas yang ditangani oleh dokter tertentu pada tanggal tertentu, lengkap dengan rincian biaya penagihannya. \\
+Implikasi              & Satu pasien dapat memiliki banyak baris fakta jika melakukan kunjungan ulang ke rumah sakit pada tanggal atau fasilitas yang berbeda. \\
 \bottomrule
 \end{tabularx}
 \end{table}
  
-Pemilihan \textit{grain} pada tingkat transaksi prosedur medis per pasien per tanggal memungkinkan fleksibilitas analisis dari level paling rinci (per prosedur) hingga level agregat (per pasien, per bulan, per kategori prosedur). \textit{Grain} ini juga memungkinkan satu pasien memiliki beberapa baris dalam \textit{fact table} jika menjalani lebih dari satu prosedur medis.
+\textit{Grain} pada tingkat transaksi per-kunjungan dipilih karena memberikan fleksibilitas analisis yang maksimal dari level makro (seperti laporan pendapatan total per bulan) hingga ke level mikro (seperti beban biaya obat per individu pasien di fasilitas IGD).
  
 \section{Rancangan Fact Table}
  
-\subsubsection{Nama dan Jenis Fact Table}
+\subsubsection{Jenis Fact Table}
  
-\textit{Fact table} utama diberi nama \textbf{Fact\_MedicalEncounter}. Berdasarkan karakteristik datanya, \textit{fact table} ini tergolong sebagai \textbf{Fact Table Tipe Transaksional} (\textit{Transaction Fact Table}) karena setiap baris merepresentasikan satu kejadian transaksi diskrit, yaitu satu tindakan medis yang dilakukan pada satu pasien pada satu waktu tertentu.
+Tabel fakta utama dalam sistem DWBI ini diberi nama \textbf{Fact\_Kunjungan} dan tergolong sebagai \textbf{\textit{Transaction Fact Table}}, di mana setiap baris mewakili satu kejadian (\textit{event}) transaksi yang berdiri sendiri dan bersifat final ketika pasien telah melunasi penagihan dan keluar dari fasilitas rumah sakit.
+ 
+Terdapat dua jenis \textit{measures} di dalam tabel ini: (1) \textbf{\textit{Additive Measures}} --- nilai numerik yang dapat dijumlahkan secara logis ke seluruh dimensi, seperti komponen biaya medis dan nilai tagihan; serta (2) \textbf{\textit{Semi-Additive Measures}} --- nilai ukur yang hanya bisa diolah pada dimensi tertentu namun tidak masuk akal jika dijumlahkan pada dimensi waktu, seperti hari lama rawat inap (\textit{length of stay}).
  
 \subsubsection{Daftar Measures dan Foreign Keys}
  
-\texttt{Fact\_MedicalEncounter} memiliki 22 \textit{measures} yang terdiri dari tiga jenis: (1)~\textit{Additive measures} yang dapat dijumlahkan di semua dimensi, (2)~\textit{Semi-Additive measures} yang hanya dapat dijumlahkan pada dimensi tertentu, dan (3)~\textit{Non-Additive measures} yang tidak dapat dijumlahkan sama sekali.
- 
 \begin{table}[H]
 \centering
-\caption{Rancangan Fact Table: Fact\_MedicalEncounter}
-\begin{tabularx}{\linewidth}{llllX}
+\caption{Rancangan Fact\_Kunjungan (5 FK + 6 Measures)}
+\begin{tabularx}{\linewidth}{p{0.7cm}p{3.2cm}p{2.8cm}p{1.5cm}X}
 \toprule
-\textbf{No} & \textbf{Nama Kolom} & \textbf{Tipe Measure} & \textbf{Tipe Data} & \textbf{Keterangan} \\
+\textbf{ID} & \textbf{Nama Kolom} & \textbf{Tipe Measure} & \textbf{Tipe Data} & \textbf{Keterangan} \\
 \midrule
-FK  & \texttt{patIndex}              & Foreign Key   & VARCHAR & Relasi ke \texttt{Dim\_Pasien} \\
-FK  & \texttt{procedure\_key}        & Foreign Key   & VARCHAR & Relasi ke \texttt{Dim\_Prosedur} \\
-FK  & \texttt{date\_key}             & Foreign Key   & INT     & Relasi ke \texttt{Dim\_Waktu} \\
-FK  & \texttt{drug\_key}             & Foreign Key   & VARCHAR & Relasi ke \texttt{Dim\_Obat} \\
-M1  & \texttt{pdc}                   & Additive      & FLOAT   & Proporsi hari tercakup obat (0--1) \\
-M2  & \texttt{pdc\_cat}              & Semi-Additive & INT     & Kategori PDC (0=sangat rendah ... 3=tinggi) \\
-M3  & \texttt{pdc\_80\_flag}         & Non-Additive  & INT     & Flag kepatuhan: 1 jika PDC $\geq 0{,}80$ \\
-M4  & \texttt{pre\_total\_cost}      & Additive      & DECIMAL & Total biaya layanan sebelum \textit{index} (USD) \\
-M5  & \texttt{post\_total\_cost}     & Additive      & DECIMAL & Total biaya layanan sesudah \textit{index} (USD) \\
-M6  & \texttt{pre\_ip\_cost}         & Additive      & DECIMAL & Biaya rawat inap \textit{pre-index} \\
-M7  & \texttt{post\_ip\_cost}        & Additive      & DECIMAL & Biaya rawat inap \textit{post-index} \\
-M8  & \texttt{pre\_er\_cost}         & Additive      & DECIMAL & Biaya gawat darurat \textit{pre-index} \\
-M9  & \texttt{post\_er\_cost}        & Additive      & DECIMAL & Biaya gawat darurat \textit{post-index} \\
-M10 & \texttt{pre\_rx\_cost}         & Additive      & DECIMAL & Biaya obat (resep) \textit{pre-index} \\
-M11 & \texttt{post\_rx\_cost}        & Additive      & DECIMAL & Biaya obat (resep) \textit{post-index} \\
-M12 & \texttt{Cost}                  & Additive      & DECIMAL & Biaya tindakan medis (prosedur) \\
-M13 & \texttt{num\_ip / num\_ip\_post}   & Additive  & INT     & Jumlah rawat inap \textit{pre/post} \\
-M14 & \texttt{num\_er / num\_er\_post}   & Additive  & INT     & Jumlah kunjungan IGD \textit{pre/post} \\
-M15 & \texttt{num\_op / num\_op\_post}   & Additive  & INT     & Jumlah rawat jalan \textit{pre/post} \\
-M16 & \texttt{total\_los / total\_los\_post} & Additive & INT  & Total hari rawat inap \textit{pre/post} \\
-M17 & \texttt{generic\_cost / brand\_cost}   & Additive & DECIMAL & Biaya obat generik dan \textit{brand} \\
-M18 & \texttt{ratio\_G\_total\_cost}     & Non-Additive  & FLOAT   & Rasio biaya generik thd total obat \\
-M19 & \texttt{generic\_rate}             & Non-Additive  & FLOAT   & Tingkat penggunaan obat generik \\
-M20 & \texttt{pre\_CCI}                  & Semi-Additive & INT     & Charlson Comorbidity Index \\
-M21 & \texttt{adjust\_total\_30d\_post}  & Additive      & FLOAT   & Utilisasi terstandar 30 hari \textit{post} \\
-M22 & \texttt{idx\_copay}                & Additive      & DECIMAL & Co-payment pasien saat \textit{index date} \\
+FK1 & \texttt{pasien\_key}    & Foreign Key   & VARCHAR & Relasi ke entitas \texttt{Dim\_Pasien} \\
+FK2 & \texttt{dokter\_key}    & Foreign Key   & VARCHAR & Relasi ke entitas \texttt{Dim\_Dokter} \\
+FK3 & \texttt{date\_key}      & Foreign Key   & INT     & Relasi penanggalan ke \texttt{Dim\_Waktu} \\
+FK4 & \texttt{fasilitas\_key} & Foreign Key   & INT     & Relasi ke \texttt{Dim\_Fasilitas} \\
+FK5 & \texttt{bayar\_key}     & Foreign Key   & INT     & Relasi ke \texttt{Dim\_Pembayaran} \\
+M1  & \texttt{lama\_rawat\_hari}   & Semi-Additive & INT     & Durasi opname pasien (0 jika selain Rawat Inap) \\
+M2  & \texttt{biaya\_konsultasi}   & Additive      & DECIMAL & Beban tarif jasa pemeriksaan oleh dokter \\
+M3  & \texttt{biaya\_obat}         & Additive      & DECIMAL & Beban peresepan obat farmasi dari kunjungan \\
+M4  & \texttt{biaya\_tindakan}     & Additive      & DECIMAL & Beban prosedur diagnostik atau tindakan operatif \\
+M5  & \texttt{biaya\_kamar}        & Additive      & DECIMAL & Beban biaya sewa kasur unit inap per kelas \\
+M6  & \texttt{total\_biaya}        & Additive      & DECIMAL & Akumulasi tagihan akhir pasien (M2+M3+M4+M5) \\
 \bottomrule
 \end{tabularx}
 \end{table}
  
 \section{Rancangan Dimension Table}
  
-\subsubsection{Daftar Dimension Table dan Jenis SCD}
+\subsubsection{Jenis Slowly Changing Dimension (SCD)}
  
-\textit{Slowly Changing Dimension} (SCD) adalah teknik dalam \textit{data warehousing} untuk menangani perubahan nilai atribut dimensi seiring waktu. Terdapat tiga tipe SCD yang digunakan dalam perancangan ini:
+\textit{Slowly Changing Dimension} (SCD) adalah teknik pengarsipan yang digunakan untuk menangani perubahan atribut deskriptif dimensi seiring berjalannya waktu agar rekam jejak finansial di masa lalu tidak mengalami kerusakan data.
  
 \begin{table}[H]
 \centering
-\caption{Penjelasan Tipe Slowly Changing Dimension (SCD)}
-\begin{tabularx}{\linewidth}{llXX}
+\caption{Konfigurasi Tipe SCD pada Sistem DWBI}
+\small
+\begin{tabularx}{\linewidth}{p{1.5cm}p{2.5cm}Xp{3.5cm}}
 \toprule
-\textbf{Tipe SCD} & \textbf{Nama Lain} & \textbf{Karakteristik} & \textbf{Contoh Atribut} \\
+\textbf{Tipe SCD} & \textbf{Nama Lain} & \textbf{Karakteristik} & \textbf{Contoh Kasus} \\
 \midrule
-Tipe 0 & Fixed / Retain Original & Atribut tidak pernah berubah sejak pertama kali dicatat. Tidak ada mekanisme \textit{update}. & \texttt{regionN}, \texttt{tanggal\_prosedur} \\
-Tipe 1 & Overwrite & Perubahan langsung menimpa nilai lama. Tidak ada histori perubahan yang disimpan. & \texttt{Procedure\_Description}, \texttt{drug\_class} \\
-Tipe 2 & Add New Row & Setiap perubahan menghasilkan baris baru dengan tanggal berlaku (\texttt{effective\_date}). Histori lengkap tersimpan. & \texttt{age\_cat}, \texttt{regionN}, flag komorbiditas, jenis asuransi \\
+Tipe 0 & Retain / Fixed
+  & Atribut tetap abadi dan tidak akan pernah diperbarui setelah pertama direkam.
+  & Data kalender hari dan bulan pada \texttt{Dim\_Waktu} \\[3pt]
+Tipe 1 & Overwrite
+  & Nilai lama langsung dihapus dan diganti nilai baru tanpa riwayat histori.
+  & Perbaikan salah ketik ejaan nama / \textit{update} izin STR pada \texttt{Dim\_Dokter} \\[3pt]
+Tipe 2 & Add New Row
+  & Setiap pembaruan menghasilkan penambahan baris data baru beserta rentang penanda tanggal aktifnya.
+  & Perubahan lokasi domisili / kota / status demografi pada \texttt{Dim\_Pasien} \\
 \bottomrule
 \end{tabularx}
 \end{table}
  
-Berdasarkan karakteristik setiap atribut dalam dataset, berikut adalah rancangan enam \textit{dimension table} yang mendukung \texttt{Fact\_MedicalEncounter}:
+\subsubsection{Rancangan Lima Dimension Table}
  
 \begin{table}[H]
 \centering
-\caption{Rancangan Dimension Table dan Tipe SCD}
-\begin{tabularx}{\linewidth}{llllX}
+\caption{Rancangan Detail Tabel Dimensi}
+\small
+\begin{tabularx}{\linewidth}{p{2.8cm}p{1.8cm}p{2.5cm}X}
 \toprule
-\textbf{Dimensi} & \textbf{Tipe SCD} & \textbf{PK} & \textbf{Atribut Utama} \\
+\textbf{Dimensi} & \textbf{Tipe SCD} & \textbf{Primary Key} & \textbf{Atribut / Kolom Utama} \\
 \midrule
-\texttt{Dim\_Pasien}    & SCD Tipe 2 & \texttt{patIndex}      & \texttt{patient\_key}, \texttt{sexN}, \texttt{age\_cat}, \texttt{age\_grpN}, \texttt{regionN}, \texttt{idx\_prodtypeN}, \texttt{idx\_paytypN}, semua flag komorbiditas (34 kolom), \texttt{pre\_CCI} \\[4pt]
-\texttt{Dim\_Waktu}     & SCD Tipe 0 & \texttt{date\_key}     & \texttt{tanggal\_prosedur} (\texttt{Procedure\_Date}), hari, bulan, kuartal, tahun, \texttt{hari\_kerja\_flag} \\[4pt]
-\texttt{Dim\_Prosedur}  & SCD Tipe 1 & \texttt{procedure\_key}& \texttt{Procedure\_Code}, \texttt{Procedure\_Category}, \texttt{Procedure\_Description}, \texttt{rentang\_biaya\_min}, \texttt{rentang\_biaya\_max} \\[4pt]
-\texttt{Dim\_Obat}      & SCD Tipe 1 & \texttt{drug\_key}     & \texttt{drug\_class}, \texttt{numofgen}, \texttt{numofbrand}, \texttt{generic\_rate}, \texttt{ratio\_G\_total\_cost}, \texttt{pdc\_cat\_label} \\[4pt]
-\texttt{Dim\_Asuransi}  & SCD Tipe 2 & \texttt{payer\_key}    & \texttt{idx\_paytypN}, label jenis pembayar (Medicare/Commercial/dll.), \texttt{idx\_prodtypeN} \\[4pt]
-\texttt{Dim\_Wilayah}   & SCD Tipe 0 & \texttt{region\_key}   & \texttt{regionN}, nama wilayah (Region 1--4) \\
+\texttt{Dim\_Pasien}
+  & SCD Tipe 2 & \texttt{pasien\_key}
+  & \texttt{id\_pasien}, \texttt{nama\_pasien}, \texttt{jenis\_kelamin}, \texttt{tanggal\_lahir}, \texttt{alamat}, \texttt{kota}, \texttt{golongan\_darah} \\[3pt]
+\texttt{Dim\_Dokter}
+  & SCD Tipe 1 & \texttt{dokter\_key}
+  & \texttt{id\_dokter}, \texttt{nama\_dokter}, \texttt{spesialisasi}, \texttt{nomor\_izin\_praktek} \\[3pt]
+\texttt{Dim\_Waktu}
+  & SCD Tipe 0 & \texttt{date\_key}
+  & \texttt{tanggal}, \texttt{nama\_hari}, \texttt{bulan}, \texttt{kuartal}, \texttt{tahun}, \texttt{is\_weekend\_flag} \\[3pt]
+\texttt{Dim\_Fasilitas}
+  & SCD Tipe 1 & \texttt{fasil\_key}
+  & \texttt{tipe\_fasilitas} (IGD, Rawat Inap, Rawat Jalan), \texttt{status\_keluar} \\[3pt]
+\texttt{Dim\_Pembayaran}
+  & SCD Tipe 1 & \texttt{bayar\_key}
+  & \texttt{metode\_pembayaran} (BPJS, Swasta, Mandiri) \\
 \bottomrule
 \end{tabularx}
 \end{table}
  
-\subsubsection{Detail Dimension Table Utama}
- 
-\texttt{Dim\_Pasien} merupakan dimensi paling kaya atribut dengan 34 kolom flag komorbiditas biner ditambah atribut demografis. Dimensi ini menggunakan SCD Tipe 2 untuk melacak perubahan status klinis pasien dari waktu ke waktu (misalnya: perubahan kategori usia, penambahan diagnosis komorbiditas baru). Setiap perubahan menghasilkan baris baru dengan kolom \texttt{effective\_date}, \texttt{expiry\_date}, dan \texttt{is\_current} untuk menjaga histori lengkap.
- 
-\texttt{Dim\_Waktu} dibangun dari kolom \texttt{Procedure\_Date} dengan hierarki: Tanggal $\to$ Minggu $\to$ Bulan $\to$ Kuartal $\to$ Tahun. Dimensi ini bersifat statis (SCD Tipe 0) karena nilai tanggal tidak pernah berubah setelah dicatat.
- 
-\texttt{Dim\_Prosedur} memuat 5 kode prosedur unik (CPT-80053, CPT-70450, CPT-71045, CPT-93000, ICD10-0DTJ) dengan deskripsi dan kategorinya. Menggunakan SCD Tipe 1 karena perubahan deskripsi prosedur cukup ditimpa langsung tanpa perlu histori.
+\texttt{Dim\_Pasien} berperan sebagai dimensi subjek pelayanan yang menyimpan riwayat perpindahan domisili demografis menggunakan skema penambahan baris data baru (SCD Tipe 2). Sementara \texttt{Dim\_Waktu} diturunkan sepenuhnya dari atribut operasional \texttt{tanggal\_kunjungan} ke dalam struktur hierarki agregasi yang luas (hari ke minggu, bulan, dan tahun) secara permanen.
  
 \section{Star Schema Diagram}
  
-Berdasarkan rancangan \textit{fact table} dan \textit{dimension table} di atas, skema dimensional yang digunakan adalah \textbf{Star Schema}, yaitu satu \textit{fact table} pusat yang terhubung langsung dengan enam \textit{dimension table}. Pemilihan \textit{Star Schema} dibanding \textit{Snowflake Schema} didasarkan pada pertimbangan kemudahan \textit{query}, performa analitik, dan kesesuaian dengan \textit{tools} Business Intelligence yang umum digunakan.
+Pendekatan topologi Data Warehouse diwujudkan melalui skema bintang (\textit{Star Schema}). Arsitektur ini dipilih dibandingkan dengan skema hibrida seperti \textit{Snowflake Schema} karena menawarkan kecepatan komputasi dan kesederhanaan eksekusi \textit{query} OLAP melalui denormalisasi penuh ke arah tabel sentral.
  
 \begin{table}[H]
 \centering
-\caption{Komponen Star Schema dan Relasi Antar Tabel}
-\begin{tabularx}{\linewidth}{llX}
+\caption{Pemetaan Komponen Arsitektur Star Schema}
+\begin{tabularx}{\linewidth}{p{3.5cm}p{2.5cm}X}
 \toprule
-\textbf{Tabel} & \textbf{Jenis} & \textbf{Relasi / Keterangan} \\
+\textbf{Nama Tabel} & \textbf{Jenis Model} & \textbf{Keterangan Arsitektur} \\
 \midrule
-\texttt{Fact\_MedicalEncounter} & Fact Table & Tabel pusat. Berisi 22 \textit{measures} dan 4 FK yang menghubungkan ke semua dimensi \\
-\texttt{Dim\_Pasien}   & Dimension & FK\@: \texttt{patIndex} $\to$ Fact. SCD2. Berisi profil klinis dan demografis pasien \\
-\texttt{Dim\_Waktu}    & Dimension & FK\@: \texttt{date\_key} $\to$ Fact. SCD0. Berisi hierarki waktu dari hari hingga tahun \\
-\texttt{Dim\_Prosedur} & Dimension & FK\@: \texttt{procedure\_key} $\to$ Fact. SCD1. Berisi detail kode CPT/ICD-10 dan kategori prosedur \\
-\texttt{Dim\_Obat}     & Dimension & FK\@: \texttt{drug\_key} $\to$ Fact. SCD1. Berisi kelas obat, rasio generik, dan kategori PDC \\
-\texttt{Dim\_Asuransi} & Dimension & FK\@: \texttt{payer\_key} $\to$ Fact. SCD2. Berisi jenis pembayar dan tipe produk asuransi \\
-\texttt{Dim\_Wilayah}  & Dimension & FK\@: \texttt{region\_key} $\to$ Fact. SCD0. Berisi kode dan nama wilayah pasien \\
+\texttt{Fact\_Kunjungan}  & Fact Table & Inti perhitungan finansial dan kunjungan (5 kunci tamu + 6 kalkulasi numerik) \\
+\texttt{Dim\_Pasien}      & Dimensi    & Menjelaskan karakteristik pasien, terikat melalui \texttt{pasien\_key} \\
+\texttt{Dim\_Dokter}      & Dimensi    & Menjelaskan identitas \& spesialisasi medis, terikat melalui \texttt{dokter\_key} \\
+\texttt{Dim\_Waktu}       & Dimensi    & Menentukan batasan agregasi \textit{time-series}, terikat melalui \texttt{date\_key} \\
+\texttt{Dim\_Fasilitas}   & Dimensi    & Memetakan pengelompokan jenis layanan unit, terikat via \texttt{fasil\_key} \\
+\texttt{Dim\_Pembayaran}  & Dimensi    & Memetakan segmentasi arus kas/penjamin, terikat via \texttt{bayar\_key} \\
 \bottomrule
 \end{tabularx}
 \end{table}
  
-Representasi diagram \textit{Star Schema} secara tekstual adalah sebagai berikut:
- 
 \begin{center}
+\resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
-  tbl/.style={rectangle, draw=ugmblue, fill=blue!8, rounded corners=4pt,
-    minimum width=3.2cm, minimum height=1.0cm, align=center,
-    font=\small\bfseries},
-  fact/.style={rectangle, draw=ugmblue, fill=ugmblue, rounded corners=4pt,
-    minimum width=4.0cm, minimum height=1.4cm, align=center,
-    font=\small\bfseries, text=white},
-  arr/.style={<->, thick, color=ugmgold, line width=1.2pt}
+  node distance=0pt,
+  every node/.style={outer sep=0pt},
+  % ── Dimension header (dark blue)
+  DH/.style={
+    rectangle, draw=ugmblue, fill=ugmblue!80, text=white,
+    font=\small\bfseries, align=center,
+    text width=4cm, minimum width=4.5cm,
+    inner xsep=5pt, inner ysep=5pt
+  },
+  % ── Dimension body (light blue)
+  DB/.style={
+    rectangle, draw=ugmblue!50, fill=blue!8,
+    font=\footnotesize, align=flush left,
+    text width=4cm, minimum width=4.5cm,
+    inner xsep=10pt, inner ysep=5pt
+  },
+  % ── Fact header (dark blue, wider)
+  FH/.style={
+    rectangle, draw=ugmblue, fill=ugmblue!80, text=white,
+    font=\small\bfseries, align=center,
+    text width=5.2cm, minimum width=5.6cm,
+    inner xsep=5pt, inner ysep=5pt
+  },
+  % ── Fact section sub-header (grey)
+  FS/.style={
+    rectangle, draw=ugmblue!50, fill=gray!30,
+    font=\footnotesize\bfseries, align=center,
+    text width=5.2cm, minimum width=5.6cm,
+    inner xsep=5pt, inner ysep=3pt
+  },
+  % ── Fact body (white-ish)
+  FB/.style={
+    rectangle, draw=ugmblue!50, fill=blue!5,
+    font=\footnotesize, align=flush left,
+    text width=5.2cm, minimum width=5.6cm,
+    inner xsep=10pt, inner ysep=5pt
+  },
+  arr/.style={->, >=latex, line width=1.2pt},
+  lbl/.style={font=\scriptsize\bfseries, inner sep=2pt}
 ]
-  % Fact table (center)
-  \node[fact] (fact) at (0,0)
-    {Fact\_MedicalEncounter\\{\normalfont\tiny patIndex, date\_key,}\\
-     {\normalfont\tiny procedure\_key, drug\_key}\\
-     {\normalfont\tiny [22 Measures]}};
- 
-  % Dimension tables
-  \node[tbl] (dpasien)   at (-5,  0)   {Dim\_Pasien\\{\normalfont\tiny SCD Tipe 2}};
-  \node[tbl] (dwaktu)    at ( 0,  3.5) {Dim\_Waktu\\{\normalfont\tiny SCD Tipe 0}};
-  \node[tbl] (dprosedur) at ( 5,  0)   {Dim\_Prosedur\\{\normalfont\tiny SCD Tipe 1}};
-  \node[tbl] (dobat)     at (-5, -3)   {Dim\_Obat\\{\normalfont\tiny SCD Tipe 1}};
-  \node[tbl] (dasuransi) at ( 5, -3)   {Dim\_Asuransi\\{\normalfont\tiny SCD Tipe 2}};
-  \node[tbl] (dwilayah)  at ( 0, -3.5) {Dim\_Wilayah\\{\normalfont\tiny SCD Tipe 0}};
- 
-  % Arrows
-  \draw[arr] (fact) -- (dpasien);
-  \draw[arr] (fact) -- (dwaktu);
-  \draw[arr] (fact) -- (dprosedur);
-  \draw[arr] (fact) -- (dobat);
-  \draw[arr] (fact) -- (dasuransi);
-  \draw[arr] (fact) -- (dwilayah);
-\end{tikzpicture}
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_WAKTU  (atas-tengah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (wh) at (0, 15.5)
+  {Dim\_Waktu \\ {\normalfont\scriptsize (Tipe SCD 0 -- Fixed)}};
+\node[DB, below=of wh] (wb) {%
+  \textbf{date\_key} (PK, INT) \\
+  tanggal (DATE) \\
+  nama\_hari (VARCHAR) \\
+  bulan (VARCHAR) \\
+  kuartal (INT) \\
+  tahun (INT) \\
+  is\_weekend\_flag (INT)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_PASIEN  (kiri-tengah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (ph) at (-8.5, 10.7)
+  {Dim\_Pasien \\ {\normalfont\scriptsize (Tipe SCD 2 -- Add New Row)}};
+\node[DB, below=of ph] (pb) {%
+  \textbf{pasien\_key} (PK, INT) \\
+  id\_pasien (VARCHAR) \\
+  nama\_pasien (VARCHAR) \\
+  jenis\_kelamin (VARCHAR) \\
+  tanggal\_lahir (DATE) \\
+  alamat (VARCHAR) \\
+  kota (VARCHAR) \\
+  golongan\_darah (VARCHAR)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_DOKTER  (kanan-tengah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (dkh) at (8.5, 10.7)
+  {Dim\_Dokter \\ {\normalfont\scriptsize (Tipe SCD 1 -- Overwrite)}};
+\node[DB, below=of dkh] (dkb) {%
+  \textbf{dokter\_key} (PK, INT) \\
+  id\_dokter (VARCHAR) \\
+  nama\_dokter (VARCHAR) \\
+  spesialisasi (VARCHAR) \\
+  nomor\_izin\_praktek (VARCHAR)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_FASILITAS  (kiri-bawah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (fsh) at (-8.5, 6.3)
+  {Dim\_Fasilitas \\ {\normalfont\scriptsize (Tipe SCD 1 -- Overwrite)}};
+\node[DB, below=of fsh] (fsb) {%
+  \textbf{fasil\_key} (PK, INT) \\
+  tipe\_fasilitas (VARCHAR) \\
+  status\_keluar (VARCHAR)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  DIM_PEMBAYARAN  (kanan-bawah)
+%%────────────────────────────────────────────────────────────────
+\node[DH] (pyh) at (8.5, 6.3)
+  {Dim\_Pembayaran \\ {\normalfont\scriptsize (Tipe SCD 1 -- Overwrite)}};
+\node[DB, below=of pyh] (pyb) {%
+  \textbf{bayar\_key} (PK, INT) \\
+  metode\_pembayaran (VARCHAR)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  FACT_KUNJUNGAN  (pusat)
+%%────────────────────────────────────────────────────────────────
+\node[FH] (fch) at (0, 10.5)
+  {Fact\_Kunjungan \\ {\normalfont\scriptsize (Pusat / Jantung Arsitektur)}};
+\node[FS, below=of fch] (fcsk)
+  {Kunci Tamu / Foreign Keys (FK1--FK5)};
+\node[FB, below=of fcsk] (fckb) {%
+  \textbf{pasien\_key} (FK1, INT) \\
+  \textbf{dokter\_key} (FK2, INT) \\
+  \textbf{date\_key}\quad\,(FK3, INT) \\
+  \textbf{fasil\_key}\quad\,(FK4, INT) \\
+  \textbf{bayar\_key}\,(FK5, INT)
+};
+\node[FS, below=of fckb] (fcsm)
+  {Measures / Metrik Kuantitatif};
+\node[FB, below=of fcsm] (fcmb) {%
+  lama\_rawat\_hari (INT) \\
+  biaya\_konsultasi (DECIMAL) \\
+  biaya\_obat (DECIMAL) \\
+  biaya\_tindakan (DECIMAL) \\
+  biaya\_kamar (DECIMAL) \\
+  total\_biaya (DECIMAL)
+};
+
+%%────────────────────────────────────────────────────────────────
+%%  ARROWS  (Dimensi → Fakta, relasi 1:N)
+%%────────────────────────────────────────────────────────────────
+% Dim_Waktu → Fact  (vertikal dari bawah wb ke atas fch)
+\draw[arr] (wb.south)
+  -- node[lbl, right] {1:N} (fch.north);
+
+% Dim_Pasien → Fact  (horizontal ke sisi kiri, level FK)
+\draw[arr] (pb.east)
+  -- node[lbl, above] {1:N} (pb.east -| fckb.west);
+
+% Dim_Dokter → Fact  (horizontal ke sisi kanan, level FK)
+\draw[arr] (dkb.west)
+  -- node[lbl, above] {1:N} (dkb.west -| fckb.east);
+
+% Dim_Fasilitas → Fact  (horizontal ke sisi kiri, level Measures)
+\draw[arr] (fsb.east)
+  -- node[lbl, above] {1:N} (fsb.east -| fcmb.west);
+
+% Dim_Pembayaran → Fact  (horizontal ke sisi kanan, level Measures)
+\draw[arr] (pyb.west)
+  -- node[lbl, above] {1:N} (pyb.west -| fcmb.east);
+
+\end{tikzpicture}%
+}
 \end{center}
+
+% \begin{center}
+% \begin{tikzpicture}[
+%   tbl/.style={rectangle, draw=ugmblue, fill=blue!8, rounded corners=4pt,
+%     minimum width=3.2cm, minimum height=1.0cm, align=center,
+%     font=\small\bfseries},
+%   fact/.style={rectangle, draw=ugmblue, fill=ugmblue, rounded corners=4pt,
+%     minimum width=4.0cm, minimum height=1.6cm, align=center,
+%     font=\small\bfseries, text=white},
+%   arr/.style={<->, thick, color=ugmgold, line width=1.2pt}
+% ]
+%   % Fact table (center)
+%   \node[fact] (fact) at (0,0)
+%     {Fact\_Kunjungan\\{\normalfont\tiny pasien\_key, dokter\_key,}\\
+%      {\normalfont\tiny date\_key, fasilitas\_key, bayar\_key}\\
+%      {\normalfont\tiny [6 Measures]}};
+ 
+%   % Dimension tables
+%   \node[tbl] (dpasien)    at (-5,  1.5) {\texttt{Dim\_Pasien}\\{\normalfont\tiny SCD Tipe 2}};
+%   \node[tbl] (ddokter)    at (-5, -1.5) {\texttt{Dim\_Dokter}\\{\normalfont\tiny SCD Tipe 1}};
+%   \node[tbl] (dwaktu)     at ( 0,  3.5) {\texttt{Dim\_Waktu}\\{\normalfont\tiny SCD Tipe 0}};
+%   \node[tbl] (dfasilitas) at ( 5,  1.5) {\texttt{Dim\_Fasilitas}\\{\normalfont\tiny SCD Tipe 1}};
+%   \node[tbl] (dbayar)     at ( 5, -1.5) {\texttt{Dim\_Pembayaran}\\{\normalfont\tiny SCD Tipe 1}};
+ 
+%   % Arrows
+%   \draw[arr] (fact) -- (dpasien);
+%   \draw[arr] (fact) -- (ddokter);
+%   \draw[arr] (fact) -- (dwaktu);
+%   \draw[arr] (fact) -- (dfasilitas);
+%   \draw[arr] (fact) -- (dbayar);
+% \end{tikzpicture}
+% \end{center}
  
 \begin{mybox}{Catatan Star Schema}
-\textit{Star Schema} di atas menunjukkan bahwa \texttt{Fact\_MedicalEncounter} berada di pusat, dihubungkan secara langsung dengan keenam dimensi melalui \textit{foreign key}. Tidak ada dimensi yang dihubungkan melalui dimensi lain (tanpa \textit{snowflaking}), sehingga kompleksitas \textit{query} tetap minimal.
+\texttt{Fact\_Kunjungan} berada di jantung arsitektur. Secara relasional, setiap rincian transaksi finansial tagihan medis diapit secara langsung (melalui konjungsi kunci indeks numerik tunggal) oleh penjelasan informatif dari lima dimensi pendukung: identitas Pasien yang dilayani, Dokter yang bertugas, Waktu kalender perawatan, letak Fasilitas penanganan, hingga model Pembayaran yang disepakati.
 \end{mybox}
+ 
+\section{Perancangan Arsitektur Staging dan Alur ETL}
+ 
+Untuk memastikan data transaksional dapat mengalir dari sistem sumber (file generator) ke dalam \textit{Star Schema} dengan aman dan terstruktur, dirancang sebuah arsitektur \textit{Extract, Transform, Load} (ETL) yang memanfaatkan \textit{Staging Area}.
+ 
+\subsubsection{Konsep dan Fungsi Staging Area}
+ 
+\textit{Staging Area} merupakan area penyimpanan sementara (\textit{buffer zone}) yang menjembatani file CSV sumber dengan repositori akhir Data Warehouse. Penggunaan \textit{staging area} dalam perancangan ini bertujuan untuk:
+ 
+\begin{itemize}
+    \item \textbf{Ekstraksi Cepat:} Memindahkan data dari file \texttt{source\_*.csv} ke dalam database relasional secepat mungkin untuk meminimalisasi beban baca pada file sumber.
+    \item \textbf{Transformasi \& Standarisasi:} Memvalidasi format tipe data (seperti format tanggal dan angka desimal) sebelum disuntikkan ke skema utama.
+    \item \textbf{Pembentukan Surrogate Key:} Tempat pemetaan kunci alami (\textit{Natural Key} seperti \texttt{id\_pasien}) menjadi kunci pengganti numerik (\textit{Surrogate Key}) untuk mempercepat performa \textit{query} OLAP.
+\end{itemize}
+ 
+\subsubsection{Pemetaan Tabel Staging}
+ 
+Skema \textit{staging} dirancang dengan prinsip relasi satu-banding-satu (1:1) terhadap file CSV yang dihasilkan oleh Python. Data akan dimuat dengan metode \textit{Truncate and Load} ke dalam tiga tabel \textit{staging} berikut:
+ 
+\begin{table}[H]
+\centering
+\caption{Pemetaan File Sumber ke Tabel Staging}
+\begin{tabularx}{\linewidth}{p{4cm}p{3cm}X}
+\toprule
+\textbf{Nama File Sumber} & \textbf{Tabel Staging} & \textbf{Karakteristik Pemindahan Data} \\
+\midrule
+\texttt{source\_pasien.csv}    & \texttt{stg\_pasien}    & Memuat profil pasien mentah; tipe data string dan date dipertahankan. \\
+\texttt{source\_dokter.csv}    & \texttt{stg\_dokter}    & Memuat data master dokter beserta spesialisasi dan biaya dasar konsultasi. \\
+\texttt{source\_kunjungan.csv} & \texttt{stg\_kunjungan} & Memuat seluruh 12.000 transaksi penagihan; bertindak sebagai tabel beban terberat. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+ 
+\subsubsection{Alur Transformasi ke Star Schema}
+ 
+Setelah data mentah mendarat di tabel \textit{staging}, proses \textit{Transform} dan \textit{Load} akan mendistribusikan data tersebut ke dalam 5 Tabel Dimensi dan 1 Tabel Fakta dengan urutan logis sebagai berikut:
+ 
+\textbf{Langkah 1: Pengisian Tabel Dimensi}
+ 
+Tabel dimensi wajib diisi lebih dahulu untuk menjaga integritas \textit{Foreign Key}.
+ 
+\begin{itemize}
+    \item \texttt{Dim\_Waktu}: Sistem mengekstrak nilai \textit{distinct} \texttt{tanggal\_kunjungan} dari \texttt{stg\_kunjungan}, lalu memecahnya menjadi komponen hari, bulan, tahun, dan \textit{weekend flag}.
+    \item \texttt{Dim\_Fasilitas} \& \texttt{Dim\_Pembayaran}: Sistem mengambil nilai unik (IGD/Inap/Jalan) dan metode pembayaran (BPJS/Mandiri/Swasta) dari \texttt{stg\_kunjungan}.
+    \item \texttt{Dim\_Pasien} \& \texttt{Dim\_Dokter}: Data dari \texttt{stg\_pasien} dan \texttt{stg\_dokter} dipindahkan ke dimensi utama. Pada tahap ini, sistem menghasilkan \textit{Surrogate Key} (\texttt{pasien\_key}, \texttt{dokter\_key}) dan mengevaluasi status perubahan data untuk SCD.
+\end{itemize}
+ 
+\textbf{Langkah 2: Pengisian Tabel Fakta}
+ 
+Pembentukan tabel \texttt{Fact\_Kunjungan} dieksekusi melalui \textit{query} JOIN antara \texttt{stg\_kunjungan} dengan kelima tabel dimensi yang telah diperbarui.
+ 
+\begin{itemize}
+    \item Sistem mengambil metrik nominal (\textit{Measures}) secara langsung: \texttt{biaya\_konsultasi}, \texttt{biaya\_obat}, \texttt{biaya\_tindakan}, \texttt{biaya\_kamar}, \texttt{total\_biaya}, dan \texttt{lama\_rawat\_hari}.
+    \item Sistem melakukan proses \textit{Lookup} pada setiap dimensi untuk mengganti \textit{Natural Key} (misal: \texttt{PSN-00001}) menjadi \textit{Surrogate Key} numerik.
+    \item Seluruh kombinasi \textit{Surrogate Key} dan \textit{Measures} disuntikkan sebagai baris baru ke dalam \texttt{Fact\_Kunjungan}.
+\end{itemize}
+ 
+\subsubsection{Orkestrasi Pipeline ETL}
+ 
+Proses pergerakan data dari file CSV ke \textit{Staging} hingga ke \textit{Star Schema} akan diotomatisasi secara terjadwal menggunakan Apache Airflow. Hal ini menjamin siklus pembaruan laporan DWBI di rumah sakit berjalan harian secara konsisten tanpa intervensi manual.
+ 

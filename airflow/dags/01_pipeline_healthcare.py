@@ -105,7 +105,7 @@ def auto_generate_dbt_models():
 
 # --- 3. DEFINISI ORKESTRASI DAG AIRFLOW ---
 with DAG(
-    '02_healthcare_data_pipeline',
+    '01_healthcare_data_pipeline',
     default_args=default_args,
     description='Pipeline ETL + dbt Otomatis Terintegrasi dengan GitHub Manifest',
     schedule_interval=None,
