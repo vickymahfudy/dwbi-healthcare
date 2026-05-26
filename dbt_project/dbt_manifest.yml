@@ -1,0 +1,159 @@
+models/staging/stg_pasien.sql: |
+  select
+      id_pasien,
+      nama_pasien, -- Langsung panggil nama_pasien karena dari source-nya sudah bernama ini
+      jenis_kelamin,
+      cast(tanggal_lahir as date) as tanggal_lahir,
+      alamat,
+      kota,
+      golongan_darah
+  from {{ source('public', 'src_pasien') }}
+
+models/staging/stg_dokter.sql: |
+  select
+      id_dokter,
+      nama_dokter, -- Langsung panggil nama_dokter tanpa alias 'as'
+      spesialisasi,
+      nomor_izin_praktek
+  from {{ source('public', 'src_dokter') }}
+
+models/staging/stg_kunjungan.sql: |
+  select
+      id_kunjungan,
+      id_pasien,
+      id_dokter,
+      cast(tanggal_kunjungan as date) as tanggal_kunjungan,
+      tipe_fasilitas,
+      status_keluar,
+      metode_pembayaran,
+      coalesce(cast(lama_rawat_hari as integer), 0) as lama_rawat_hari,
+      coalesce(cast(biaya_konsultasi as decimal(12,2)), 0) as biaya_konsultasi,
+      coalesce(cast(biaya_obat as decimal(12,2)), 0) as biaya_obat,
+      coalesce(cast(biaya_tindakan as decimal(12,2)), 0) as biaya_tindakan,
+      coalesce(cast(biaya_kamar as decimal(12,2)), 0) as biaya_kamar,
+      coalesce(cast(total_biaya as decimal(12,2)), 0) as total_biaya
+  from {{ source('public', 'src_kunjungan') }}
+
+models/dimensions/dim_pasien.sql: |
+  -- SCD Tipe 2 Pemetaan Kunci Historis (Menggunakan MD5 Hash sebagai Surrogate Key)
+  select
+      md5(cast(id_pasien as varchar) || '-' || cast(tanggal_lahir as varchar)) as pasien_key,
+      id_pasien,
+      nama_pasien,
+      jenis_kelamin,
+      tanggal_lahir,
+      alamat,
+      kota,
+      golongan_darah
+  from {{ ref('stg_pasien') }}
+
+models/dimensions/dim_dokter.sql: |
+  -- SCD Tipe 1 Overwrite (Surrogate Key berbasis MD5 Hash dari ID Alami)
+  select
+      md5(cast(id_dokter as varchar)) as dokter_key,
+      id_dokter,
+      nama_dokter,
+      spesialisasi,
+      nomor_izin_praktek
+  from {{ ref('stg_dokter') }}
+
+models/dimensions/dim_waktu.sql: |
+  -- SCD Tipe 0 Retain (Diturunkan dari nilai distinct tanggal_kunjungan)
+  with distinct_dates as (
+      select distinct tanggal_kunjungan as tanggal
+      from {{ ref('stg_kunjungan') }}
+  )
+  select
+      cast(to_char(tanggal, 'YYYYMMDD') as integer) as date_key,
+      tanggal,
+      to_char(tanggal, 'Day') as nama_hari,
+      to_char(tanggal, 'Month') as bulan,
+      extract(quarter from tanggal) as kuartal,
+      extract(year from tanggal) as tahun,
+      case when extract(isodow from tanggal) in (6, 7) then 1 else 0 end as is_weekend_flag
+  from distinct_dates
+
+models/dimensions/dim_fasilitas.sql: |
+  -- SCD Tipe 1 (Diturunkan dari kombinasi unik di tabel transaksi)
+  with distinct_facilities as (
+      select distinct tipe_fasilitas, status_keluar
+      from {{ ref('stg_kunjungan') }}
+      where tipe_fasilitas is not null
+  )
+  select
+      row_number() over (order by tipe_fasilitas, status_keluar) as fasilitas_key,
+      tipe_fasilitas,
+      status_keluar
+  from distinct_facilities
+
+models/dimensions/dim_pembayaran.sql: |
+  -- SCD Tipe 1 (Diturunkan dari metode pembayaran unik di tabel transaksi)
+  with distinct_payments as (
+      select distinct metode_pembayaran
+      from {{ ref('stg_kunjungan') }}
+      where metode_pembayaran is not null
+  )
+  select
+      row_number() over (order by metode_pembayaran) as bayar_key,
+      metode_pembayaran
+  from distinct_payments
+
+models/marts/fact_kunjungan.sql: |
+  -- Jantung Arsitektur: Transaction Fact Table (5 FK + 6 Measures)
+  with kunjungan as (
+      select * from {{ ref('stg_kunjungan') }}
+  ),
+  pasien as (
+      select * from {{ ref('dim_pasien') }}
+  ),
+  dokter as (
+      select * from {{ ref('dim_dokter') }}
+  ),
+  waktu as (
+      select * from {{ ref('dim_waktu') }}
+  ),
+  fasilitas as (
+      select * from {{ ref('dim_fasilitas') }}
+  ),
+  pembayaran as (
+      select * from {{ ref('dim_pembayaran') }}
+  )
+
+  select
+      p.pasien_key,
+      d.dokter_key,
+      w.date_key,
+      f.fasilitas_key,
+      pay.bayar_key,
+      k.lama_rawat_hari,
+      k.biaya_konsultasi,
+      k.biaya_obat,
+      k.biaya_tindakan,
+      k.biaya_kamar,
+      k.total_biaya
+  from kunjungan k
+  left join pasien p on k.id_pasien = p.id_pasien
+  left join dokter d on k.id_dokter = d.id_dokter
+  left join waktu w on k.tanggal_kunjungan = w.tanggal
+  left join fasilitas f on k.tipe_fasilitas = f.tipe_fasilitas and k.status_keluar = f.status_keluar
+  left join pembayaran pay on k.metode_pembayaran = pay.metode_pembayaran
+
+models/marts/schema.yml: |
+  version: 2
+  models:
+    - name: fact_kunjungan
+      description: "Tabel fakta utama transaksi kunjungan pelayanan medis rumah sakit"
+      columns:
+        - name: pasien_key
+          tests:
+            - not_null
+        - name: dokter_key
+          tests:
+            - not_null
+        - name: date_key
+          tests:
+            - not_null
+        - name: total_biaya
+          description: "Akumulasi tagihan akhir (konsultasi + obat + tindakan + kamar)"
+          tests:
+            - not_null

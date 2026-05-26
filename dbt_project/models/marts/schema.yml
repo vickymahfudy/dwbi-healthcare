@@ -1,0 +1,18 @@
+version: 2
+models:
+  - name: fact_kunjungan
+    description: "Tabel fakta utama transaksi kunjungan pelayanan medis rumah sakit"
+    columns:
+      - name: pasien_key
+        tests:
+          - not_null
+      - name: dokter_key
+        tests:
+          - not_null
+      - name: date_key
+        tests:
+          - not_null
+      - name: total_biaya
+        description: "Akumulasi tagihan akhir (konsultasi + obat + tindakan + kamar)"
+        tests:
+          - not_null
