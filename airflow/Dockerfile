@@ -1,7 +1,16 @@
-FROM apache/airflow:latest-python3.12
+FROM apache/airflow:2.10.5-python3.11
 
-# Salin file requirements ke dalam kontainer
-COPY ./requirements.txt /requirements.txt
+USER root
 
-# Upgrade pip dan instal modul ke user-space airflow
-RUN pip install --no-cache-dir --user -r /requirements.txt
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    build-essential \
+    && apt-get clean
+
+USER airflow
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt

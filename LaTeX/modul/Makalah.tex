@@ -11,6 +11,8 @@
 \usepackage{setspace}
 \usepackage{titlesec}
 \usepackage{multicol}
+\usetikzlibrary{positioning}
+
 
 % Perbaikan natbib: Tambahkan opsi 'numbers'
 \usepackage[numbers,semicolon,round,sort&compress,sectionbib]{natbib}
@@ -106,7 +108,7 @@
 
 % --- Struktur Judul Utama ---
 \title{Data Warehouse and Business Intelligence}
-\subtitle{Tugas Kelompok: Data Build Tool (DBT)}
+\subtitle{Tugas Kelompok: Multidimensional Modeling untuk Sistem DWBI Healthcare}
 \author{Engelbertus Rande, Gilbert Fandiliam Mooy, Sinta Siti Nuriah, Vicky Mahfudy}
 \professor{Khabib Mustofa}
 
@@ -120,14 +122,20 @@
 
 \mainmatter{}
 \normalsize
-\part{DBT Sebagai Tools Bantu Untuk Data Warehouse}
+\part{Pendahuluan}
 \include{contents/Bab1}
 
-\part{Penyiapan Lingkungan DBT}
+\part{Analisis Kebutuhan Bisnis}
 \include{contents/Bab2}
 
-\part{Kasus dan Pembahasan}
+\part{Perancangan Dimensional Modeling}
 \include{contents/Bab3}
+
+\part{Synthetic Data Generation}
+\include{contents/Bab4}
+
+\part{Implementasi Orkestrasi Apache Airflow}
+\include{contents/Bab5}
 
 \backmatter{}
 \bibliographystyle{plainnat}
