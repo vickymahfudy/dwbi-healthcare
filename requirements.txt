@@ -1,0 +1,9 @@
+apache-airflow
+pandas
+SQLAlchemy
+Faker
+sqlalchemy
+psycopg2-binary
+notebook
+matplotlib 
+seaborn
