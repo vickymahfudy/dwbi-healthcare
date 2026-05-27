@@ -1,3 +1,5 @@
+% !TEX root = ../Makalah.tex
+
 % ============================================================
 %  BAB VIII: VERIFIKASI DAN VALIDASI
 % ============================================================
@@ -54,7 +56,7 @@ LIMIT 5;
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-2_hasil_sql.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_2_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-02: peringkat lima dokter dengan volume transaksi tertinggi.}
   \label{fig:8.2.query_top5_dokter}
 \end{center}
@@ -84,7 +86,7 @@ ORDER BY total_biaya_pelayanan DESC;
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-3_hasil_sql.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_3_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-03: distribusi dan proporsi metode pembayaran terhadap total pendapatan.}
   \label{fig:8.3.query_metode_pembayaran}
 \end{center}
@@ -125,7 +127,7 @@ ORDER BY
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-4_hasil_sql.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_4_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-04: rata-rata \textit{Length of Stay} dan korelasi dengan total biaya per tipe fasilitas.}
   \label{fig:8.4.query_los_biaya}
 \end{center}
@@ -156,11 +158,352 @@ ORDER BY w.tahun, w.bulan;
 \end{lstlisting}
  
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-5_hasil_sql.png}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_5_hasil_sql.png}
   \captionof{figure}{Hasil eksekusi Query BQ-05: tren bulanan volume kunjungan dan pendapatan sepanjang 2025 hingga awal 2026.}
   \label{fig:8.5.query_tren_bulanan}
 \end{center}
  
+\subsection{Query 6: Proporsi Status Keluar Pasien Rawat Inap (BQ-06)}
+
+\textit{Query} ini menganalisis mutu pelayanan dengan mengukur distribusi status keluar
+pasien (\textit{Sembuh}, \textit{Dirujuk}, \textit{Pulang Paksa}, \textit{Meninggal})
+secara eksklusif pada fasilitas Rawat Inap, sekaligus menghitung rata-rata lama rawat
+dan rata-rata total biaya per kategori status keluar.
+
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-06: Proporsi Status Keluar Pasien Rawat Inap]
+SELECT 
+    f.status_keluar,
+    COUNT(fk.pasien_key) AS jumlah_pasien,
+    ROUND(AVG(fk.lama_rawat_hari), 2) AS rata_rata_lama_rawat,
+    ROUND(AVG(fk.total_biaya), 2) AS rata_rata_total_biaya,
+    ROUND(
+        COUNT(fk.pasien_key) * 100.0 / SUM(COUNT(fk.pasien_key)) OVER (), 
+        2
+    ) AS persentase_proporsi
+FROM fact_kunjungan fk
+JOIN dim_fasilitas f ON fk.fasilitas_key = f.fasilitas_key
+WHERE f.tipe_fasilitas = 'Rawat Inap'
+GROUP BY f.status_keluar
+ORDER BY jumlah_pasien DESC;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_6_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-06: proporsi status keluar pasien beserta rata-rata lama rawat dan biaya pada fasilitas Rawat Inap.}
+  \label{fig:8.6.query_status_keluar}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:8.6.query_status_keluar} menampilkan distribusi empat kategori
+status keluar pasien Rawat Inap disertai indikator efisiensi klinis berupa rata-rata
+\texttt{lama\_rawat\_hari} dan rata-rata \texttt{total\_biaya} per kategori.
+
+% -------------------------------------------------------
+\subsection{Query 7: Breakdown Komponen Biaya Pelayanan (BQ-07)}
+
+\textit{Query} ini menggunakan ekspresi \texttt{WITH} (\textit{Common Table Expression})
+untuk mendekomposisi struktur total penagihan menjadi empat komponen biaya: konsultasi,
+obat, tindakan, dan kamar. Setiap komponen dihitung kontribusi persentasenya terhadap
+total keseluruhan serta biaya rata-rata per transaksi.
+
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-07: Breakdown Kontribusi Komponen Biaya]
+WITH komponen_biaya AS (
+    SELECT 
+        'Biaya Konsultasi' AS komponen,
+        SUM(biaya_konsultasi) AS total_biaya,
+        ROUND(AVG(biaya_konsultasi), 2) AS rata_rata_biaya
+    FROM fact_kunjungan
+    
+    UNION ALL
+    
+    SELECT 
+        'Biaya Obat' AS komponen,
+        SUM(biaya_obat) AS total_biaya,
+        ROUND(AVG(biaya_obat), 2) AS rata_rata_biaya
+    FROM fact_kunjungan
+    
+    UNION ALL
+    
+    SELECT 
+        'Biaya Tindakan' AS komponen,
+        SUM(biaya_tindakan) AS total_biaya,
+        ROUND(AVG(biaya_tindakan), 2) AS rata_rata_biaya
+    FROM fact_kunjungan
+    
+    UNION ALL
+    
+    SELECT 
+        'Biaya Kamar' AS komponen,
+        SUM(biaya_kamar) AS total_biaya,
+        ROUND(AVG(biaya_kamar), 2) AS rata_rata_biaya
+    FROM fact_kunjungan
+)
+SELECT 
+    komponen,
+    total_biaya,
+    rata_rata_biaya,
+    ROUND(
+        total_biaya * 100.0 / SUM(total_biaya) OVER (), 
+        2
+    ) AS persentase_kontribusi,
+    ROUND(
+        total_biaya * 1.0 / (SELECT COUNT(*) FROM fact_kunjungan), 
+        2
+    ) AS biaya_per_transaksi
+FROM komponen_biaya
+ORDER BY total_biaya DESC;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_7_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-07: kontribusi dan persentase masing-masing komponen biaya terhadap total penagihan keseluruhan.}
+  \label{fig:8.7.query_breakdown_biaya}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:8.7.query_breakdown_biaya} menunjukkan urutan dominasi
+komponen biaya berdasarkan nilai \texttt{total\_biaya} dan
+\texttt{persentase\_kontribusi}, yang mencerminkan struktur pengeluaran terbesar
+dalam ekosistem pelayanan medis rumah sakit.
+
+% -------------------------------------------------------
+\subsection{Query 8: Distribusi Kunjungan Berdasarkan Kota Asal Pasien (BQ-08)}
+
+\textit{Query} ini menganalisis dimensi geografis pemanfaatan layanan dengan menghitung
+frekuensi kunjungan dan total pendapatan per kota asal pasien. Rasio
+\texttt{rata\_rata\_kunjungan\_per\_pasien} dihitung untuk mengidentifikasi kota dengan
+tingkat kunjungan ulang (\textit{revisit rate}) tertinggi.
+
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-08: Distribusi Kunjungan per Kota Asal Pasien]
+SELECT 
+    p.kota,
+    COUNT(fk.pasien_key) AS jumlah_kunjungan,
+    COUNT(DISTINCT p.pasien_key) AS jumlah_pasien_unik,
+    SUM(fk.total_biaya) AS total_biaya_pelayanan,
+    ROUND(AVG(fk.total_biaya), 2) AS rata_rata_biaya_per_kunjungan,
+    ROUND(
+        COUNT(fk.pasien_key) * 1.0 / COUNT(DISTINCT p.pasien_key), 
+        2
+    ) AS rata_rata_kunjungan_per_pasien,
+    ROUND(
+        COUNT(fk.pasien_key) * 100.0 / SUM(COUNT(fk.pasien_key)) OVER (), 
+        2
+    ) AS persentase_kunjungan,
+    ROUND(
+        SUM(fk.total_biaya) * 100.0 / SUM(SUM(fk.total_biaya)) OVER (), 
+        2
+    ) AS persentase_pendapatan
+FROM fact_kunjungan fk
+JOIN dim_pasien p ON fk.pasien_key = p.pasien_key
+GROUP BY p.kota
+ORDER BY jumlah_kunjungan DESC, total_biaya_pelayanan DESC
+LIMIT 20;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_8_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-08: 20 kota teratas berdasarkan frekuensi kunjungan dan kontribusi pendapatan.}
+  \label{fig:8.8.query_kota_asal}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:8.8.query_kota_asal} menampilkan pemeringkatan kota asal
+pasien berdasarkan beban pemanfaatan layanan. Kolom \texttt{persentase\_kunjungan} dan
+\texttt{persentase\_pendapatan} memungkinkan identifikasi kota yang memiliki volume
+kunjungan tinggi namun kontribusi pendapatan yang tidak proporsional, atau sebaliknya.
+
+% -------------------------------------------------------
+\subsection{Query 9: Profil Demografi Kunjungan Berdasarkan Jenis Kelamin dan Golongan Darah (BQ-09)}
+
+\textit{Query} ini menghasilkan \textit{cross-tabulation} kunjungan pasien berdasarkan
+dua variabel demografis secara bersamaan: \texttt{jenis\_kelamin} dan
+\texttt{golongan\_darah}. Penggunaan fungsi \texttt{OVER (PARTITION BY)} memungkinkan
+kalkulasi persentase berlapis, yaitu terhadap total keseluruhan maupun terhadap
+sub-total per jenis kelamin.
+
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-09: Cross-tabulation Demografi Jenis Kelamin dan Golongan Darah]
+SELECT 
+    p.jenis_kelamin,
+    p.golongan_darah,
+    COUNT(fk.pasien_key) AS jumlah_kunjungan,
+    COUNT(DISTINCT p.pasien_key) AS jumlah_pasien_unik,
+    ROUND(AVG(fk.total_biaya), 2) AS rata_rata_biaya,
+    ROUND(AVG(fk.lama_rawat_hari), 2) AS rata_rata_lama_rawat,
+    ROUND(
+        COUNT(fk.pasien_key) * 100.0 / SUM(COUNT(fk.pasien_key)) OVER (), 
+        2
+    ) AS persentase_total_kunjungan,
+    ROUND(
+        COUNT(fk.pasien_key) * 100.0 
+        / SUM(COUNT(fk.pasien_key)) OVER (PARTITION BY p.jenis_kelamin), 
+        2
+    ) AS persentase_dalam_jenis_kelamin
+FROM fact_kunjungan fk
+JOIN dim_pasien p ON fk.pasien_key = p.pasien_key
+GROUP BY p.jenis_kelamin, p.golongan_darah
+ORDER BY p.jenis_kelamin, jumlah_kunjungan DESC;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_9_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-09: distribusi kunjungan berdasarkan kombinasi jenis kelamin dan golongan darah dengan persentase berlapis.}
+  \label{fig:8.9.query_demografi}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:8.9.query_demografi} menyajikan profil demografis dalam
+format tabular dua dimensi. Kolom \texttt{persentase\_dalam\_jenis\_kelamin}
+menunjukkan distribusi golongan darah di dalam masing-masing segmen jenis kelamin
+secara independen, terlepas dari proporsi keseluruhan.
+
+% -------------------------------------------------------
+\subsection{Query 10: Perbandingan Rata-Rata Biaya Obat IGD vs.\ Rawat Jalan (BQ-10)}
+
+\textit{Query} ini memfokuskan analisis farmasi pada dua segmen fasilitas yang memiliki
+karakteristik klinis berbeda: IGD dan Rawat Jalan. Selain rata-rata, disertakan pula
+metrik dispersi (\texttt{standar\_deviasi}) dan persentase kontribusi biaya obat
+terhadap total biaya per segmen guna menilai efisiensi penggunaan obat secara komparatif.
+
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-10: Komparasi Rata-Rata Biaya Obat IGD vs. Rawat Jalan]
+SELECT 
+    f.tipe_fasilitas,
+    COUNT(fk.pasien_key) AS jumlah_kunjungan,
+    ROUND(AVG(fk.biaya_obat), 2) AS rata_rata_biaya_obat,
+    ROUND(MIN(fk.biaya_obat), 2) AS biaya_obat_minimum,
+    ROUND(MAX(fk.biaya_obat), 2) AS biaya_obat_maksimum,
+    ROUND(STDDEV(fk.biaya_obat), 2) AS standar_deviasi,
+    SUM(fk.biaya_obat) AS total_biaya_obat,
+    ROUND(
+        AVG(fk.biaya_obat) * 100.0 / NULLIF(AVG(fk.total_biaya), 0), 
+        2
+    ) AS persentase_biaya_obat_terhadap_total
+FROM fact_kunjungan fk
+JOIN dim_fasilitas f ON fk.fasilitas_key = f.fasilitas_key
+WHERE f.tipe_fasilitas IN ('IGD', 'Rawat Jalan')
+GROUP BY f.tipe_fasilitas
+ORDER BY rata_rata_biaya_obat DESC;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_10_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-10: perbandingan statistik biaya obat antara fasilitas IGD dan Rawat Jalan.}
+  \label{fig:8.10.query_biaya_obat}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:8.10.query_biaya_obat} memperlihatkan perbedaan profil
+biaya obat antara kedua segmen fasilitas. Penggunaan \texttt{NULLIF} pada kolom
+\texttt{persentase\_biaya\_obat\_terhadap\_total} menjaga keamanan pembagian agar
+tidak menghasilkan kesalahan \textit{division by zero} pada kasus tepi.
+
+% -------------------------------------------------------
+\subsection{Query 11: Peringkat Lima Dokter Teraktif (BQ-11)}
+
+\textit{Query} ini mengidentifikasi lima dokter dengan kontribusi pelayanan tertinggi
+berdasarkan jumlah transaksi kunjungan. Fungsi analitik \texttt{RANK() OVER}
+digunakan untuk menghasilkan peringkat yang bersifat deterministik dan dapat
+direproduksi, disertai metrik pendukung berupa total pendapatan dan rata-rata
+lama rawat per dokter.
+
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-11: Ranking Top 5 Dokter Teraktif]
+SELECT 
+    d.nama_dokter,
+    d.spesialisasi,
+    d.nomor_izin_praktek,
+    COUNT(fk.pasien_key) AS jumlah_kunjungan,
+    SUM(fk.total_biaya) AS total_pendapatan,
+    ROUND(AVG(fk.total_biaya), 2) AS rata_rata_biaya_per_kunjungan,
+    ROUND(AVG(fk.lama_rawat_hari), 2) AS rata_rata_lama_rawat,
+    RANK() OVER (ORDER BY COUNT(fk.pasien_key) DESC) AS ranking_kunjungan
+FROM fact_kunjungan fk
+JOIN dim_dokter d ON fk.dokter_key = d.dokter_key
+GROUP BY d.nama_dokter, d.spesialisasi, d.nomor_izin_praktek
+ORDER BY jumlah_kunjungan DESC
+LIMIT 5;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_11_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-11: lima dokter teratas berdasarkan frekuensi kunjungan beserta total pendapatan yang dihasilkan.}
+  \label{fig:8.11.query_top5_dokter}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:8.11.query_top5_dokter} menyajikan daftar lima dokter
+dengan beban pelayanan tertinggi. Kolom \texttt{ranking\_kunjungan} yang dihasilkan
+melalui \textit{window function} bersifat konsisten dan tidak bergantung pada urutan
+baris hasil agregasi semata.
+
+% -------------------------------------------------------
+\subsection{Query 12: Rata-Rata Biaya per Transaksi Kunjungan --- \textit{Average Ticket Size} (BQ-12)}
+
+\textit{Query} ini menghitung \textit{average ticket size}, yaitu rata-rata total biaya
+per satu transaksi kunjungan, sebagai indikator finansial utama rumah sakit. Analisis
+diperluas dengan \textit{breakdown} per tipe fasilitas, metode pembayaran, dan
+spesialisasi dokter menggunakan klausul \texttt{UNION ALL} untuk menghasilkan
+satu tampilan komparatif yang terpadu.
+
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-12: Average Ticket Size dan Breakdown per Dimensi]
+-- Statistik keseluruhan
+SELECT 
+    COUNT(*) AS total_transaksi,
+    ROUND(AVG(total_biaya)::numeric, 2) AS average_ticket_size,
+    ROUND(MIN(total_biaya)::numeric, 2) AS biaya_minimum,
+    ROUND(MAX(total_biaya)::numeric, 2) AS biaya_maksimum,
+    ROUND(STDDEV(total_biaya)::numeric, 2) AS standar_deviasi,
+    ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY total_biaya)::numeric, 2) AS kuartil_1,
+    ROUND(PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY total_biaya)::numeric, 2) AS median,
+    ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY total_biaya)::numeric, 2) AS kuartil_3,
+    SUM(total_biaya) AS total_pendapatan_keseluruhan
+FROM fact_kunjungan;
+
+-- Breakdown per dimensi
+SELECT 
+    'Per Tipe Fasilitas' AS kategori,
+    f.tipe_fasilitas AS sub_kategori,
+    COUNT(*) AS jumlah_transaksi,
+    ROUND(AVG(fk.total_biaya)::numeric, 2) AS average_ticket_size
+FROM fact_kunjungan fk
+JOIN dim_fasilitas f ON fk.fasilitas_key = f.fasilitas_key
+GROUP BY f.tipe_fasilitas
+
+UNION ALL
+
+SELECT 
+    'Per Metode Pembayaran' AS kategori,
+    pb.metode_pembayaran AS sub_kategori,
+    COUNT(*) AS jumlah_transaksi,
+    ROUND(AVG(fk.total_biaya)::numeric, 2) AS average_ticket_size
+FROM fact_kunjungan fk
+JOIN dim_pembayaran pb ON fk.bayar_key = pb.bayar_key
+GROUP BY pb.metode_pembayaran
+
+UNION ALL
+
+SELECT 
+    'Per Spesialisasi' AS kategori,
+    d.spesialisasi AS sub_kategori,
+    COUNT(*) AS jumlah_transaksi,
+    ROUND(AVG(fk.total_biaya)::numeric, 2) AS average_ticket_size
+FROM fact_kunjungan fk
+JOIN dim_dokter d ON fk.dokter_key = d.dokter_key
+GROUP BY d.spesialisasi
+ORDER BY kategori, average_ticket_size DESC;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_12a_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-12 (bagian 1): statistik deskriptif \textit{average ticket size} secara keseluruhan termasuk distribusi kuartil.}
+  \label{fig:8.12a.query_ats_global}
+\end{center}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-_12b_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-12 (bagian 2): \textit{breakdown average ticket size} per tipe fasilitas, metode pembayaran, dan spesialisasi dokter.}
+  \label{fig:8.12b.query_ats_breakdown}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:8.12a.query_ats_global} menyajikan distribusi biaya secara
+statistik melalui nilai kuartil dan median, sehingga memberikan gambaran yang lebih
+robust dibandingkan rata-rata tunggal. Gambar~\ref{fig:8.12b.query_ats_breakdown}
+melengkapi analisis dengan perspektif multidimensi yang memungkinkan perbandingan
+\textit{average ticket size} lintas segmen fasilitas, payer, dan spesialisasi secara
+bersamaan dalam satu hasil \textit{query}.
+
 \section{Hasil dbt Test}
  
 Pengujian integritas data dijalankan secara otomatis oleh dbt melalui perintah \texttt{dbt test} yang telah dikonfigurasi pada \textit{pipeline} Airflow sebagai \textit{task} \texttt{dbt\_data\_quality\_test}. Aturan pengujian didefinisikan pada berkas \texttt{schema.yml} di dalam direktori \texttt{models/marts/}.

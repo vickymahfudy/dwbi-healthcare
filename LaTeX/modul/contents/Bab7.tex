@@ -1,3 +1,5 @@
+% !TEX root = ../Makalah.tex
+
 \chapter{Pembangunan Data Mart}
 
 % ============================================================
@@ -240,7 +242,7 @@ Berikut adalah langkah-langkah sistematis konfigurasi koneksi dari awal hingga b
     \captionof{figure}{Konfigurasi Koneksi Final Data Mart pada wizard Metabase.}
     \label{fig:5-5_mbase_09.png}
   \end{center}
-   
+
   \begin{mybox}{Catatan: Port Forwarding 5555}
   \textit{Port} wajib diubah menjadi \texttt{5555} karena Metabase mengakses PostgreSQL dari sisi \textit{host} eksternal, memanfaatkan pintu gerbang \textit{forwarding} yang telah disediakan Docker. Setelah tombol \textit{"Simpan"} ditekan, Metabase akan melakukan \textit{handshake protocol} ke database PostgreSQL. Status keberhasilan ditandai dengan hilangnya pesan \textit{error} dan dimulainya proses sinkronisasi skema metadata secara otomatis (\textit{scanning tables}).
   \end{mybox}
@@ -266,7 +268,6 @@ Metrik utama yang didefinisikan secara baku pada lapisan semantik ini meliputi:
   \[
     \text{Avg LoS} = \text{AVG}(\texttt{durasi\_rawat})
   \]
- \clearpage
   \item \textbf{Metrik Kuantitas (Total Kunjungan Medis):} Dirumuskan melalui fungsi perhitungan unik terhadap kunci utama kunjungan:
   \[
     \text{Total Kunjungan} = \text{COUNT}(\texttt{kunjungan\_key})
