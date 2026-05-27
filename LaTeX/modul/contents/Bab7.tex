@@ -14,7 +14,7 @@ Arsitektur fisik yang dipilih untuk Data Mart ini adalah \textbf{Skema Bintang (
 Tabel Fakta (\texttt{fct\_kunjungan}) ditempatkan sebagai pusat dari arsitektur, mengumpulkan seluruh metrik kuantitatif transaksi medis. Tabel fakta ini kemudian dikelilingi dan diapit oleh lima Tabel Dimensi sebagai penjelas konteks peristiwa, yang terikat melalui hubungan \textit{One-to-Many} (1:N) dengan integritas referensial yang ketat.
  
 \begin{center}
-  \includegraphics[width=0.95\textwidth]{./figures/5-4_DBT_lineage_graph.png}
+  \includegraphics[width=0.95\textwidth]{./figures/star-schema-healthcare.png}
   \captionof{figure}{Diagram ERD \textit{Star Schema} Final dari Database PostgreSQL.}
   \label{fig:5.4.erd_star_schema}
 \end{center}
@@ -104,21 +104,17 @@ Berikut adalah langkah-langkah sistematis konfigurasi koneksi dari awal hingga b
 \begin{enumerate}
  
   \item \textbf{Inisialisasi dan Pemilihan Bahasa Utama}
+
+  Saat pertama kali mengakses antarmuka Metabase via peramban web, pengguna disambut oleh menu preferensi bahasa lokalisasi. Pada tahapan ini, dipilih bahasa \textit{Indonesian (Indonesia)} sebagai bahasa bawaan sistem (\textit{default language}) untuk mempermudah navigasi seluruh pengguna dan jajaran manajemen di dalam ekosistem analitik rumah sakit ini.
+ 
   \begin{center}
     \includegraphics[width=0.80\textwidth]{./figures/5-5_mbase_01.png}
     \captionof{figure}{Halaman pemilihan bahasa pada inisialisasi awal Metabase.}
     \label{fig:5-5_mbase_01.png}
   \end{center}
-  
-  Saat pertama kali mengakses antarmuka Metabase via peramban web, pengguna disambut oleh menu preferensi bahasa lokalisasi. Pada tahapan ini, dipilih bahasa \textit{Indonesian (Indonesia)} sebagai bahasa bawaan sistem (\textit{default language}) untuk mempermudah navigasi seluruh pengguna dan jajaran manajemen di dalam ekosistem analitik rumah sakit ini.
- 
  
   \item \textbf{Pembuatan Akun Administrator Perangkat}
-   \begin{center}
-    \includegraphics[width=0.80\textwidth]{./figures/5-5_mbase_02.png}
-    \captionof{figure}{Halaman pembuatan akun administrator pada inisialisasi Metabase.}
-    \label{fig:5-5_mbase_02.png}
-  \end{center}
+
 
   Langkah kedua adalah mengamankan sistem dengan membangun kredensial pengguna utama (\textit{Superadmin/Administrator}). Akun ini memegang hak akses penuh terhadap manajemen database, pembuatan dasbor, serta pembagian hak akses pengguna operasional. Parameter yang didaftarkan adalah sebagai berikut:
  
@@ -128,30 +124,34 @@ Berikut adalah langkah-langkah sistematis konfigurasi koneksi dari awal hingga b
     \item Perusahaan / Nama Tim: \texttt{Data Engineer}
     \item Kata Sandi: (diatur secara aman untuk pemenuhan jaminan keamanan data pasien)
   \end{itemize}
+
+   \begin{center}
+    \includegraphics[width=0.80\textwidth]{./figures/5-5_mbase_02.png}
+    \captionof{figure}{Halaman pembuatan akun administrator pada inisialisasi Metabase.}
+    \label{fig:5-5_mbase_02.png}
+  \end{center}
+
   \item \textbf{Penentuan Orientasi Penggunaan Perangkat (Survey)}
+
+  Metabase menyajikan kuesioner singkat untuk mengoptimalkan mesin visualisasi sesuai kebutuhan organisasi. Pilihan jatuh pada opsi \textit{"Sedikit dari keduanya"}, yang menandakan bahwa Metabase akan difungsikan secara hibrida: baik untuk kebutuhan analisis data mandiri (\textit{self-service analytics} oleh tim manajemen medis) maupun untuk penyematan grafik analitik ke dalam aplikasi operasional rumah sakit yang lebih luas.
+
    \begin{center}
     \includegraphics[width=0.75\textwidth]{./figures/5-5_mbase_03.png}
     \captionof{figure}{Halaman survey orientasi penggunaan pada inisialisasi Metabase.}
     \label{fig:5-5_mbase_03.png}
   \end{center}
 
-  Metabase menyajikan kuesioner singkat untuk mengoptimalkan mesin visualisasi sesuai kebutuhan organisasi. Pilihan jatuh pada opsi \textit{"Sedikit dari keduanya"}, yang menandakan bahwa Metabase akan difungsikan secara hibrida: baik untuk kebutuhan analisis data mandiri (\textit{self-service analytics} oleh tim manajemen medis) maupun untuk penyematan grafik analitik ke dalam aplikasi operasional rumah sakit yang lebih luas.
- 
   \item \textbf{Pemilihan Jenis Database (DBMS Target)}
+
+  Metabase mendukung konektivitas ke puluhan sistem database modern. Karena Data Mart proyek ini dibangun di atas infrastruktur PostgreSQL (sesuai konfigurasi \texttt{postgres:13} di Docker), maka ikon PostgreSQL dipilih sebagai tipe database tujuan utama untuk membuka \textit{form} pemetaan skema relasional.
+
   \begin{center}
     \includegraphics[width=0.75\textwidth]{./figures/5-5_mbase_04.png}
     \captionof{figure}{Halaman pemilihan tipe database pada inisialisasi Metabase.}
     \label{fig:5-5_mbase_04.png}
-  \end{center}
+  \end{center}  
 
-  Metabase mendukung konektivitas ke puluhan sistem database modern. Karena Data Mart proyek ini dibangun di atas infrastruktur PostgreSQL (sesuai konfigurasi \texttt{postgres:13} di Docker), maka ikon PostgreSQL dipilih sebagai tipe database tujuan utama untuk membuka \textit{form} pemetaan skema relasional.
- 
   \item \textbf{Analisis Percobaan Pertama Koneksi Jaringan (Uji Coba Port 5432)}
-  \begin{center}
-    \includegraphics[width=0.75\textwidth]{./figures/5-5_mbase_05.png}
-    \captionof{figure}{Parameter database PostgreSQL pada wizard Metabase.}
-    \label{fig:5-5_mbase_05.png}
-  \end{center}
  
   Pada pengisian \textit{form} awal, dilakukan uji coba pengisian parameter penghubung menggunakan \textit{port} standar PostgreSQL internal dengan komponen data sebagai berikut:
  
@@ -171,47 +171,51 @@ Berikut adalah langkah-langkah sistematis konfigurasi koneksi dari awal hingga b
   \bottomrule
   \end{tabularx}
   \end{table}
- 
+
+  \begin{center}
+    \includegraphics[width=0.75\textwidth]{./figures/5-5_mbase_05.png}
+    \captionof{figure}{Parameter database PostgreSQL pada wizard Metabase.}
+    \label{fig:5-5_mbase_05.png}
+  \end{center}
+  
   \begin{mybox}{Analisis Teknis: Batasan Port 5432}
   Konfigurasi \textit{port} 5432 pada tahap ini hanya akan berhasil jika Metabase dijalankan di dalam klaster jaringan internal Docker yang sama (\textit{same network bridge}). Jika Metabase bertindak dari luar jaringan Docker, \textit{port} ini akan ditolak oleh sistem karena adanya restriksi isolasi kontainer.
   \end{mybox}
  
   \item \textbf{Pengaturan Preferensi Pelacakan Data Anonim}
+
+  Sebelum proses instalasi selesai, sistem meminta persetujuan terkait pelacakan data penggunaan performa aplikasi. Opsi \textit{"Izinkan Metabase Untuk Mengumpulkan Acara Penggunaan Anonim"} diaktifkan guna membantu komunitas pengembang Metabase menerima laporan telemetri \textit{bug} secara otomatis tanpa melanggar privasi data rekam medis pasien, karena data \textit{query} tabel tetap bersifat rahasia dan terisolasi lokal.
+
   \begin{center}
     \includegraphics[width=0.85\textwidth]{./figures/5-5_mbase_06.png}
     \captionof{figure}{Pengaturan Preferensi Pelacakan Data Anonim pada wizard Metabase.}
     \label{fig:5-5_mbase_06.png}
   \end{center}
-
-  Sebelum proses instalasi selesai, sistem meminta persetujuan terkait pelacakan data penggunaan performa aplikasi. Opsi \textit{"Izinkan Metabase Untuk Mengumpulkan Acara Penggunaan Anonim"} diaktifkan guna membantu komunitas pengembang Metabase menerima laporan telemetri \textit{bug} secara otomatis tanpa melanggar privasi data rekam medis pasien, karena data \textit{query} tabel tetap bersifat rahasia dan terisolasi lokal.
  
   \item \textbf{Penyelesaian Onboarding Awal Perangkat}
+  
+  Tahapan \textit{onboarding wizard} dinyatakan berhasil ditandai dengan munculnya pesan konfirmasi \textit{"Anda siap!"}. Di halaman ini, email administrator (\texttt{admin@mail.com}) dimasukkan kembali ke dalam \textit{form} buletin informasi untuk berlangganan pembaruan fitur keamanan penting dari Metabase.
+  
   \begin{center}
     \includegraphics[width=0.75\textwidth]{./figures/5-5_mbase_07.png}
     \captionof{figure}{Penyelesaian Onboarding Awal Perangkat pada wizard Metabase.}
     \label{fig:5-5_mbase_07.png}
   \end{center}
- 
-  Tahapan \textit{onboarding wizard} dinyatakan berhasil ditandai dengan munculnya pesan konfirmasi \textit{"Anda siap!"}. Di halaman ini, email administrator (\texttt{admin@mail.com}) dimasukkan kembali ke dalam \textit{form} buletin informasi untuk berlangganan pembaruan fitur keamanan penting dari Metabase.
-  
+
   \item \textbf{Akses Masuk ke Panel Administrasi Utama (\textit{Admin Settings})}
+  
+  Setelah masuk ke halaman beranda utama Metabase, pengguna diarahkan menuju pojok kanan atas untuk membuka ikon gerigi pengaturan (\textit{Settings}) dan masuk ke submenu \textit{"Pengaturan admin"}. Langkah ini krusial untuk melakukan perbaikan dan validasi ulang koneksi database yang sempat tertunda atau mengalami kendala rute \textit{port} eksternal.
+  
   \begin{center}
     \includegraphics[width=0.25\textwidth]{./figures/5-5_mbase_08.png}
     \captionof{figure}{Akses ke Panel Administrasi Utama pada wizard Metabase.}
     \label{fig:5-5_mbase_08.png}
   \end{center}
 
-  Setelah masuk ke halaman beranda utama Metabase, pengguna diarahkan menuju pojok kanan atas untuk membuka ikon gerigi pengaturan (\textit{Settings}) dan masuk ke submenu \textit{"Pengaturan admin"}. Langkah ini krusial untuk melakukan perbaikan dan validasi ulang koneksi database yang sempat tertunda atau mengalami kendala rute \textit{port} eksternal.
- 
   \item \textbf{Konfigurasi Sukses Koneksi Final Data Mart (Penerapan Port Forwarding 5555)}
-  \begin{center}
-    \includegraphics[width=0.85\textwidth]{./figures/5-5_mbase_09.png}
-    \captionof{figure}{Konfigurasi Koneksi Final Data Mart pada wizard Metabase.}
-    \label{fig:5-5_mbase_09.png}
-  \end{center}
-
+  
   Pada panel administrasi, di bawah menu \textit{"Tambah Database"}, dilakukan perbaikan parameter koneksi agar selaras dengan deklarasi pemetaan \textit{port} luar pada file \texttt{docker-compose.yaml} (\texttt{ports: - "5555:5432"}). Spesifikasi parameter final yang dimasukkan adalah sebagai berikut:
- 
+    
   \begin{table}[H]
   \centering
   \caption{Parameter Koneksi Final Data Mart ke Metabase}
@@ -231,7 +235,12 @@ Berikut adalah langkah-langkah sistematis konfigurasi koneksi dari awal hingga b
   \end{tabularx}
   \end{table}
 
- 
+  \begin{center}
+    \includegraphics[width=0.85\textwidth]{./figures/5-5_mbase_09.png}
+    \captionof{figure}{Konfigurasi Koneksi Final Data Mart pada wizard Metabase.}
+    \label{fig:5-5_mbase_09.png}
+  \end{center}
+   
   \begin{mybox}{Catatan: Port Forwarding 5555}
   \textit{Port} wajib diubah menjadi \texttt{5555} karena Metabase mengakses PostgreSQL dari sisi \textit{host} eksternal, memanfaatkan pintu gerbang \textit{forwarding} yang telah disediakan Docker. Setelah tombol \textit{"Simpan"} ditekan, Metabase akan melakukan \textit{handshake protocol} ke database PostgreSQL. Status keberhasilan ditandai dengan hilangnya pesan \textit{error} dan dimulainya proses sinkronisasi skema metadata secara otomatis (\textit{scanning tables}).
   \end{mybox}

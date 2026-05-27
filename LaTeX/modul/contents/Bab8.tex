@@ -15,13 +15,17 @@ Lima \textit{query} analitik berikut dieksekusi langsung pada tabel \texttt{fct\
 \textit{Query} ini memverifikasi kemampuan sistem dalam menghitung akumulasi pendapatan operasional rumah sakit yang dibedakan berdasarkan tipe unit fasilitas pelayanan, sekaligus menguji integritas relasi \texttt{fct\_kunjungan} dengan \texttt{dim\_fasilitas}.
  
 \begin{lstlisting}[language=SQL, caption=Query Analitik BQ-01: Total Pendapatan per Tipe Fasilitas]
-SELECT
+SELECT 
     f.tipe_fasilitas,
-    COUNT(fk.kunjungan_key)             AS total_kunjungan,
-    SUM(fk.total_biaya)                 AS total_pendapatan,
-    ROUND(AVG(fk.total_biaya), 2)       AS rata_rata_biaya_per_kunjungan
-FROM fct_kunjungan fk
-JOIN dim_fasilitas f ON fk.fasilitas_key = f.fasil_key
+    COUNT(fk.pasien_key) AS jumlah_kunjungan,
+    SUM(fk.total_biaya) AS total_pendapatan,
+    ROUND(AVG(fk.total_biaya), 2) AS rata_rata_biaya_per_kunjungan,
+    ROUND(
+        SUM(fk.total_biaya) * 100.0 / SUM(SUM(fk.total_biaya)) OVER (), 
+        2
+    ) AS persentase_kontribusi
+FROM fact_kunjungan fk
+JOIN dim_fasilitas f ON fk.fasilitas_key = f.fasilitas_key
 GROUP BY f.tipe_fasilitas
 ORDER BY total_pendapatan DESC;
 \end{lstlisting}
@@ -32,11 +36,11 @@ ORDER BY total_pendapatan DESC;
   \label{fig:8.1.query_pendapatan_fasilitas}
 \end{center}
  
-\subsection{Query 2: Peringkat 5 Dokter Teratas berdasarkan Volume Kunjungan (BQ-11)}
+\subsection{Query 2: Kinerja Dokter per Spesialisasi (BQ-02)}
  
-\textit{Query} ini memverifikasi kemampuan sistem dalam menghasilkan laporan kinerja tenaga medis (\textit{Top 5 Doctors}), sekaligus menguji integritas relasi antara \texttt{fct\_kunjungan} dan \texttt{dim\_dokter} melalui \textit{Surrogate Key}.
+\textit{Query} ini memverifikasi kemampuan sistem dalam menghasilkan laporan kinerja tenaga medis (dokter) berdasarkan spesialisasinya, sekaligus menguji integritas relasi antara \texttt{fct\_kunjungan} dan \texttt{dim\_dokter} melalui \textit{Surrogate Key}.
  
-\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-11: Top 5 Dokter berdasarkan Volume Transaksi]
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-02: Kinerja Dokter per Spesialisasi]
 SELECT
     d.spesialisasi,
     COUNT(fk.kunjungan_key)         AS total_kunjungan,
@@ -51,79 +55,104 @@ LIMIT 5;
  
 \begin{center}
   \includegraphics[width=0.85\textwidth]{./figures/8-2_hasil_sql.png}
-  \captionof{figure}{Hasil eksekusi Query BQ-11: peringkat lima dokter dengan volume transaksi tertinggi.}
+  \captionof{figure}{Hasil eksekusi Query BQ-02: peringkat lima dokter dengan volume transaksi tertinggi.}
   \label{fig:8.2.query_top5_dokter}
 \end{center}
  
-\subsection{Query 3: Rata-rata Length of Stay dan Pengaruhnya terhadap Biaya (BQ-04)}
- 
-\textit{Query} ini memverifikasi kemampuan sistem dalam menghitung metrik efisiensi klinis (\textit{Average Length of Stay}) dan menganalisis korelasi antara durasi rawat inap dengan total biaya pelayanan.
- 
-\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-04: Analisis Length of Stay dan Biaya]
-SELECT
-    f.tipe_fasilitas,
-    COUNT(fk.kunjungan_key)                   AS total_kunjungan,
-    ROUND(AVG(fk.durasi_rawat), 2)            AS avg_los_hari,
-    ROUND(AVG(fk.biaya_kamar), 2)             AS avg_biaya_kamar,
-    ROUND(AVG(fk.total_biaya), 2)             AS avg_total_biaya,
-    ROUND(CORR(fk.durasi_rawat,
-               fk.total_biaya)::NUMERIC, 4)   AS korelasi_los_biaya
-FROM fct_kunjungan fk
-JOIN dim_fasilitas f ON fk.fasilitas_key = f.fasil_key
-GROUP BY f.tipe_fasilitas
-ORDER BY avg_los_hari DESC;
-\end{lstlisting}
- 
-\begin{center}
-  \includegraphics[width=0.85\textwidth]{./figures/8-3_hasil_sql.png}
-  \captionof{figure}{Hasil eksekusi Query BQ-04: rata-rata \textit{Length of Stay} dan korelasi dengan total biaya per tipe fasilitas.}
-  \label{fig:8.3.query_los_biaya}
-\end{center}
- 
-\subsection{Query 4: Distribusi Metode Pembayaran terhadap Total Biaya (BQ-03)}
+\subsection{Query 3: Distribusi Metode Pembayaran terhadap Total Biaya (BQ-03)}
  
 \textit{Query} ini memverifikasi kemampuan sistem dalam menganalisis segmentasi arus kas berdasarkan metode penjaminan klaim, mencakup proporsi nilai klaim BPJS, Asuransi Swasta, dan Mandiri terhadap total pendapatan rumah sakit.
  
 \begin{lstlisting}[language=SQL, caption=Query Analitik BQ-03: Distribusi Metode Pembayaran]
-SELECT
-    p.metode_pembayaran,
-    COUNT(fk.kunjungan_key)                      AS total_kunjungan,
-    SUM(fk.total_biaya)                          AS total_klaim,
+SELECT 
+    pb.metode_pembayaran,
+    COUNT(fk.pasien_key) AS jumlah_transaksi,
+    SUM(fk.total_biaya) AS total_biaya_pelayanan,
+    ROUND(AVG(fk.total_biaya), 2) AS rata_rata_biaya_per_transaksi,
     ROUND(
-        100.0 * SUM(fk.total_biaya) /
-        SUM(SUM(fk.total_biaya)) OVER (), 2
-    )                                            AS persen_dari_total
-FROM fct_kunjungan fk
-JOIN dim_pembayaran p ON fk.pembayaran_key = p.bayar_key
-GROUP BY p.metode_pembayaran
-ORDER BY total_klaim DESC;
+        COUNT(fk.pasien_key) * 100.0 / SUM(COUNT(fk.pasien_key)) OVER (), 
+        2
+    ) AS persentase_transaksi,
+    ROUND(
+        SUM(fk.total_biaya) * 100.0 / SUM(SUM(fk.total_biaya)) OVER (), 
+        2
+    ) AS persentase_total_biaya
+FROM fact_kunjungan fk
+JOIN dim_pembayaran pb ON fk.bayar_key = pb.bayar_key
+GROUP BY pb.metode_pembayaran
+ORDER BY total_biaya_pelayanan DESC;
+\end{lstlisting}
+ 
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{./figures/8-3_hasil_sql.png}
+  \captionof{figure}{Hasil eksekusi Query BQ-03: distribusi dan proporsi metode pembayaran terhadap total pendapatan.}
+  \label{fig:8.3.query_metode_pembayaran}
+\end{center}
+
+\subsection{Query 4: Rata-rata Length of Stay dan Pengaruhnya terhadap Biaya (BQ-04)}
+ 
+\textit{Query} ini memverifikasi kemampuan sistem dalam menghitung metrik efisiensi klinis (\textit{Average Length of Stay}) dan menganalisis korelasi antara durasi rawat inap dengan total biaya pelayanan.
+ 
+\begin{lstlisting}[language=SQL, caption=Query Analitik BQ-04: Analisis Length of Stay dan Biaya]
+SELECT 
+    CASE 
+        WHEN fk.lama_rawat_hari = 0 THEN '0 hari (Rawat Jalan/IGD)'
+        WHEN fk.lama_rawat_hari BETWEEN 1 AND 3 THEN '1-3 hari'
+        WHEN fk.lama_rawat_hari BETWEEN 4 AND 7 THEN '4-7 hari'
+        WHEN fk.lama_rawat_hari BETWEEN 8 AND 14 THEN '8-14 hari'
+        ELSE '> 14 hari'
+    END AS kategori_los,
+    COUNT(fk.pasien_key) AS jumlah_kunjungan,
+    ROUND(AVG(fk.lama_rawat_hari), 2) AS rata_rata_lama_rawat,
+    ROUND(AVG(fk.biaya_kamar), 2) AS rata_rata_biaya_kamar,
+    ROUND(AVG(fk.total_biaya), 2) AS rata_rata_total_biaya,
+    SUM(fk.total_biaya) AS total_pendapatan,
+    ROUND(
+        AVG(fk.biaya_kamar) * 100.0 / NULLIF(AVG(fk.total_biaya), 0), 
+        2
+    ) AS persentase_biaya_kamar_terhadap_total
+FROM fact_kunjungan fk
+GROUP BY 
+    CASE 
+        WHEN fk.lama_rawat_hari = 0 THEN '0 hari (Rawat Jalan/IGD)'
+        WHEN fk.lama_rawat_hari BETWEEN 1 AND 3 THEN '1-3 hari'
+        WHEN fk.lama_rawat_hari BETWEEN 4 AND 7 THEN '4-7 hari'
+        WHEN fk.lama_rawat_hari BETWEEN 8 AND 14 THEN '8-14 hari'
+        ELSE '> 14 hari'
+    END
+ORDER BY 
+    MIN(fk.lama_rawat_hari);
 \end{lstlisting}
  
 \begin{center}
   \includegraphics[width=0.85\textwidth]{./figures/8-4_hasil_sql.png}
-  \captionof{figure}{Hasil eksekusi Query BQ-03: distribusi dan proporsi metode pembayaran terhadap total pendapatan.}
-  \label{fig:8.4.query_metode_pembayaran}
+  \captionof{figure}{Hasil eksekusi Query BQ-04: rata-rata \textit{Length of Stay} dan korelasi dengan total biaya per tipe fasilitas.}
+  \label{fig:8.4.query_los_biaya}
 \end{center}
+ 
  
 \subsection{Query 5: Tren Bulanan Volume Kunjungan Pasien (BQ-05)}
  
 \textit{Query} ini memverifikasi kemampuan sistem dalam menganalisis pola temporal (\textit{time-series}) menggunakan dimensi waktu, sekaligus menguji integritas relasi antara \texttt{fct\_kunjungan} dan \texttt{dim\_waktu} yang telah dibangun melalui dbt.
  
 \begin{lstlisting}[language=SQL, caption=Query Analitik BQ-05: Tren Bulanan Volume Kunjungan]
-SELECT
+SELECT 
     w.tahun,
     w.bulan,
-    TO_CHAR(
-        TO_DATE(w.bulan::TEXT, 'MM'), 'Month'
-    )                                   AS nama_bulan,
-    COUNT(fk.kunjungan_key)             AS total_kunjungan,
-    SUM(fk.total_biaya)                 AS total_pendapatan_bulanan,
-    ROUND(AVG(fk.total_biaya), 2)       AS avg_biaya_per_kunjungan
-\clearpage
-FROM fct_kunjungan fk
-JOIN dim_waktu w ON fk.waktu_key = w.date_key
+    COUNT(fk.pasien_key) AS jumlah_kunjungan,
+    SUM(fk.total_biaya) AS total_pendapatan,
+    ROUND(AVG(fk.total_biaya), 2) AS rata_rata_biaya_per_kunjungan,
+    LAG(COUNT(fk.pasien_key)) OVER (ORDER BY w.tahun, w.bulan) AS kunjungan_bulan_sebelumnya,
+    ROUND(
+        (COUNT(fk.pasien_key) - LAG(COUNT(fk.pasien_key)) OVER (ORDER BY w.tahun, w.bulan)) * 100.0 
+        / NULLIF(LAG(COUNT(fk.pasien_key)) OVER (ORDER BY w.tahun, w.bulan), 0),
+        2
+    ) AS persentase_pertumbuhan
+FROM fact_kunjungan fk
+JOIN dim_waktu w ON fk.date_key = w.date_key
+WHERE w.tahun IN (2025, 2026)
 GROUP BY w.tahun, w.bulan
-ORDER BY w.tahun ASC, w.bulan ASC;
+ORDER BY w.tahun, w.bulan;
 \end{lstlisting}
  
 \begin{center}
@@ -142,9 +171,9 @@ Pengujian integritas data dijalankan secara otomatis oleh dbt melalui perintah \
 version: 2
 
 models:
-  # =========================================================================
+  # ========================================================================
   # STAGING LAYER
-  # =========================================================================
+  # ========================================================================
   - name: stg_pasien
     description: "Data mentah pasien dari sistem pendaftaran"
     columns:
@@ -181,9 +210,9 @@ models:
         tests:
           - not_null
 
-  # =========================================================================
+  # ========================================================================
   # DIMENSION LAYER
-  # =========================================================================
+  # ========================================================================
   - name: dim_pasien
     description: "Dimensi master pasien dengan penerapan SCD Tipe 2"
     columns:
@@ -224,9 +253,9 @@ models:
           - unique
           - not_null
 
-  # =========================================================================
-  # MART LAYER (SOLUSI: Semua argumen dibungkus dalam blok arguments)
-  # =========================================================================
+  # ========================================================================
+  # MART LAYER 
+  # ========================================================================
   - name: fact_kunjungan
     description: "Tabel fakta utama transaksi kunjungan pelayanan medis rumah sakit"
     columns:
@@ -384,7 +413,7 @@ f11a7f975b7d
 \end{center}
  
 
-% ─── Metadata eksekusi dbt test ──────────────────────────────────────────────
+% ===== Metadata eksekusi dbt test ======
 \begin{table}[H]
 \centering
 \caption{Metadata Eksekusi \texttt{dbt test} (2026-05-26, 23:02:50 UTC)}
@@ -402,7 +431,7 @@ Hasil Akhir       & \textbf{PASS=30 \quad WARN=0 \quad ERROR=0 \quad SKIP=0 \qua
 \end{tabularx}
 \end{table}
  
-% ─── Tabel A: Lapisan Staging ─────────────────────────────────────────────────
+% ===== Tabel A: Lapisan Staging ======
 \begin{table}[H]
 \centering
 \caption{Hasil \texttt{dbt test} -- Lapisan Staging (9 dari 30 pengujian)}
@@ -426,7 +455,7 @@ Hasil Akhir       & \textbf{PASS=30 \quad WARN=0 \quad ERROR=0 \quad SKIP=0 \qua
 \end{tabularx}
 \end{table}
  
-% ─── Tabel B: Lapisan Dimensi ─────────────────────────────────────────────────
+% ===== Tabel B: Lapisan Dimensi ======
 \begin{table}[H]
 \centering
 \caption{Hasil \texttt{dbt test} -- Lapisan Dimensi (10 dari 30 pengujian)}
@@ -450,7 +479,7 @@ Hasil Akhir       & \textbf{PASS=30 \quad WARN=0 \quad ERROR=0 \quad SKIP=0 \qua
 \end{tabularx}
 \end{table}
  
-% ─── Tabel C: Lapisan Fakta ───────────────────────────────────────────────────
+% ===== Tabel C: Lapisan Fakta =====
 \begin{table}[H]
 \centering
 \caption{Hasil \texttt{dbt test} -- Lapisan Fakta \texttt{fact\_kunjungan} (11 dari 30 pengujian)}
@@ -475,26 +504,291 @@ Hasil Akhir       & \textbf{PASS=30 \quad WARN=0 \quad ERROR=0 \quad SKIP=0 \qua
 \end{tabularx}
 \end{table}
  
-\begin{mybox}{Ringkasan Hasil dbt Test: 30/30 PASS}
+% \begin{mybox}{Ringkasan Hasil dbt Test: 30/30 PASS}
 Seluruh 30 aturan pengujian yang mencakup \texttt{accepted\_values} (1), \texttt{not\_null} (17), \texttt{unique} (8), dan \texttt{relationships} (4) berhasil dieksekusi tanpa satu pun kegagalan. Pengujian dijalankan secara paralel menggunakan 4 \textit{threads} pada \textit{target} \texttt{docker\_env} dan selesai dalam 2,23 detik. Hal ini membuktikan bahwa seluruh lapisan \textit{Star Schema} -- dari \textit{staging} hingga \textit{fact table} -- bebas dari anomali data dan memiliki integritas referensial yang solid.
-\end{mybox}
+% \end{mybox}
  
-\section{Data Quality Check}
- 
-Pemeriksaan kualitas data (\textit{data quality check}) dilakukan secara mandiri di luar ekosistem dbt untuk memvalidasi karakteristik statistik dari data yang tersimpan di Data Mart. Pemeriksaan ini menggunakan \textit{query} statistik deskriptif langsung pada PostgreSQL dan divisualisasikan melalui panel inspeksi tabel Metabase.
- 
-% \begin{center}
-%   \includegraphics[width=0.90\textwidth]{./figures/8-5_hasil_sql.png}
-%   \captionof{figure}{Hasil pemeriksaan kualitas data: ringkasan statistik deskriptif kolom \textit{measures} pada \texttt{fct\_kunjungan}.}
-%   \label{fig:8.7.data_quality_check}
-% \end{center}
+% ============================================================
+% SECTION: DATA QUALITY CHECK
+% ============================================================
 
+\section{Pemeriksaan Kualitas Data (\textit{Data Quality Check})}
 
-Hasil pemeriksaan menunjukkan tidak ada nilai kosong (\textit{null}) pada seluruh kolom kunci maupun kolom \textit{measures}, seluruh nilai biaya bersifat non-negatif ($\geq 0$) sesuai aturan validasi yang ditetapkan, distribusi \texttt{tipe\_fasilitas} terbagi pada tiga kategori yang valid (IGD, Rawat Jalan, Rawat Inap), dan total baris pada \texttt{fct\_kunjungan} sebesar 12.000 record sesuai dengan volume data yang direncanakan.
- 
-% \begin{center}
-%   \includegraphics[width=0.90\textwidth]{./figures/8-5_hasil_sql.png}
-%   \captionof{figure}{Hasil pemeriksaan \textit{null value} dan konsistensi tipe data pada seluruh kolom Data Mart di Metabase.}
-%   \label{fig:8.8.null_check}
-% \end{center}
- 
+Pemeriksaan kualitas data dilakukan secara mandiri di luar ekosistem dbt untuk memvalidasi
+karakteristik statistik dari data yang tersimpan di Data Mart. Pemeriksaan ini menggunakan
+kueri statistik deskriptif langsung pada PostgreSQL dan divisualisasikan melalui panel
+inspeksi tabel Metabase.
+
+% -------------------------------------------------------
+\subsection{Metodologi Pemeriksaan}
+
+Pendekatan yang digunakan bersifat \textit{out-of-framework}, artinya validasi dijalankan
+langsung terhadap tabel final di layer Mart tanpa bergantung pada mekanisme \texttt{dbt test}.
+Hal ini bertujuan untuk:
+
+\begin{itemize}
+  \item Memverifikasi integritas data secara independen sebagai lapisan validasi kedua.
+  \item Mendeteksi anomali statistik yang tidak tercakup oleh skema YAML dbt,
+        seperti distribusi nilai, keberadaan \textit{outlier}, dan konsistensi kategori.
+  \item Menyediakan bukti audit yang dapat direproduksi melalui kueri SQL yang terdokumentasi.
+\end{itemize}
+
+% -------------------------------------------------------
+\subsection{Dimensi Pemeriksaan}
+
+Pemeriksaan mencakup empat dimensi kualitas data utama yang dijabarkan
+pada Tabel~\ref{tab:dq_dimensions}.
+
+\begin{table}[H]
+  \centering
+  \caption{Dimensi Pemeriksaan Kualitas Data}
+  \label{tab:dq_dimensions}
+  \small
+  \begin{tabularx}{\linewidth}{cp{3.5cm}p{3cm}X}
+    \toprule
+    \textbf{No} & \textbf{Dimensi} & \textbf{Target Tabel} & \textbf{Kriteria Kelulusan} \\
+    \midrule
+    1 & Kelengkapan \newline (\textit{Completeness})
+      & \texttt{fct\_kunjungan}, \newline seluruh dimensi
+      & Tidak ada nilai \texttt{NULL} pada kolom kunci dan kolom \textit{measures} \\
+    \midrule
+    2 & Kevalidan \newline (\textit{Validity})
+      & \texttt{fct\_kunjungan}
+      & Seluruh nilai \texttt{total\_biaya} $\geq 0$ \\
+    \midrule
+    3 & Konsistensi \newline (\textit{Consistency})
+      & \texttt{dim\_fasilitas}
+      & Nilai \texttt{tipe\_fasilitas} hanya terdiri dari kategori yang ditetapkan \\
+    \midrule
+    4 & Volume \newline (\textit{Row Count})
+      & \texttt{fct\_kunjungan}
+      & Jumlah baris sesuai target rencana pemuatan data \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% -------------------------------------------------------
+\subsection{Kueri Validasi PostgreSQL}
+
+% ========================
+\subsubsection{Pemeriksaan Kelengkapan --- Nilai \textit{Null}}
+
+Kueri berikut menghitung jumlah baris dengan nilai \texttt{NULL} pada seluruh
+kolom kunci dan kolom \textit{measure} di \texttt{fct\_kunjungan}.
+
+\begin{lstlisting}[language=SQL, caption={Pemeriksaan nilai null pada fct\_kunjungan}]
+SELECT
+    COUNT(*)                                        AS total_rows,
+    COUNT(*) FILTER (WHERE pasien_key   IS NULL)    AS null_pasien_key,
+    COUNT(*) FILTER (WHERE dokter_key   IS NULL)    AS null_dokter_key,
+    COUNT(*) FILTER (WHERE date_key     IS NULL)    AS null_date_key,
+    COUNT(*) FILTER (WHERE fasilitas_key IS NULL)   AS null_fasilitas_key,
+    COUNT(*) FILTER (WHERE bayar_key    IS NULL)    AS null_bayar_key,
+    COUNT(*) FILTER (WHERE total_biaya  IS NULL)    AS null_total_biaya
+FROM airflow.public.fact_kunjungan;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{figures/8-7_data_chk_01.png}
+  \captionof{figure}{Hasil kueri pemeriksaan nilai \textit{null} pada \texttt{fct\_kunjungan}}
+  \label{fig:dq_null_check}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:dq_null_check} menunjukkan seluruh kolom kunci dan
+kolom \textit{measure} \texttt{total\_biaya} tidak memiliki nilai kosong
+(\texttt{NULL = 0} pada semua kolom).
+
+\begin{table}[H]
+  \centering
+  \caption{Ringkasan Hasil Pemeriksaan Nilai \textit{Null}}
+  \label{tab:dq_null}
+  \small
+  \begin{tabularx}{\linewidth}{cp{3cm}Xc}
+    \toprule
+    \textbf{No} & \textbf{Kolom} & \textbf{Keterangan} & \textbf{Jumlah \textit{Null}} \\
+    \midrule
+    1 & \texttt{pasien\_key}    & Foreign key ke \texttt{dim\_pasien}     & 0 \\
+    2 & \texttt{dokter\_key}    & Foreign key ke \texttt{dim\_dokter}     & 0 \\
+    3 & \texttt{date\_key}      & Foreign key ke \texttt{dim\_waktu}      & 0 \\
+    4 & \texttt{fasilitas\_key} & Foreign key ke \texttt{dim\_fasilitas}  & 0 \\
+    5 & \texttt{bayar\_key}     & Foreign key ke \texttt{dim\_pembayaran} & 0 \\
+    6 & \texttt{total\_biaya}   & Kolom \textit{measure} utama            & 0 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ========================
+\subsubsection{Pemeriksaan Kevalidan --- Nilai Negatif pada Biaya}
+
+Kueri berikut memverifikasi bahwa seluruh nilai \texttt{total\_biaya} bersifat
+non-negatif sesuai aturan validasi bisnis, sekaligus menampilkan statistik
+deskriptif distribusi biaya.
+
+\begin{lstlisting}[language=SQL, caption={Validasi nilai non-negatif dan statistik deskriptif total\_biaya}]
+SELECT
+    MIN(total_biaya)                                         AS min_biaya,
+    MAX(total_biaya)                                         AS max_biaya,
+    ROUND(AVG(total_biaya), 2)                               AS avg_biaya,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_biaya) AS median_biaya,
+    COUNT(*) FILTER (WHERE total_biaya < 0)                  AS jumlah_negatif
+FROM airflow.public.fact_kunjungan;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{figures/8-7_data_chk_02.png}
+  \captionof{figure}{Hasil kueri validasi nilai \texttt{total\_biaya} pada \texttt{fct\_kunjungan}}
+  \label{fig:dq_range_check}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:dq_range_check} mengonfirmasi nilai
+\texttt{jumlah\_negatif = 0}. Semua nilai biaya bersifat non-negatif
+($\geq 0$) sesuai aturan validasi bisnis yang ditetapkan.
+
+\begin{table}[H]
+  \centering
+  \caption{Statistik Deskriptif \texttt{total\_biaya} pada \texttt{fct\_kunjungan}}
+  \label{tab:dq_range}
+  \small
+  \begin{tabularx}{\linewidth}{cp{3cm}Xc}
+    \toprule
+    \textbf{No} & \textbf{Metrik} & \textbf{Keterangan} & \textbf{Nilai} \\
+    \midrule
+    1 & \texttt{min\_biaya}      & Nilai biaya terkecil dalam dataset       & -- \\
+    2 & \texttt{max\_biaya}      & Nilai biaya terbesar dalam dataset       & -- \\
+    3 & \texttt{avg\_biaya}      & Rata-rata biaya seluruh kunjungan        & -- \\
+    4 & \texttt{median\_biaya}   & Nilai tengah distribusi biaya            & -- \\
+    \midrule
+    5 & \texttt{jumlah\_negatif} & Baris dengan \texttt{total\_biaya} $< 0$ & \textcolor{green!60!black}{\textbf{0}} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ========================
+\subsubsection{Pemeriksaan Konsistensi --- Distribusi Tipe Fasilitas}
+
+Kueri berikut memverifikasi bahwa nilai \texttt{tipe\_fasilitas} pada
+\texttt{dim\_fasilitas} hanya terdiri dari kategori yang telah ditetapkan.
+
+\begin{lstlisting}[language=SQL, caption={Distribusi nilai tipe\_fasilitas pada dim\_fasilitas}]
+SELECT
+    tipe_fasilitas,
+    COUNT(*)                          AS jumlah_record,
+    ROUND(
+        COUNT(*) * 100.0
+        / SUM(COUNT(*)) OVER (), 2
+    )                                 AS persen
+FROM airflow.public.dim_fasilitas
+GROUP BY tipe_fasilitas
+ORDER BY jumlah_record DESC;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.75\textwidth]{figures/8-7_data_chk_03.png}
+  \captionof{figure}{Hasil kueri distribusi \texttt{tipe\_fasilitas} pada \texttt{dim\_fasilitas}}
+  \label{fig:dq_category_check}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:dq_category_check} menunjukkan distribusi
+\texttt{tipe\_fasilitas} hanya mencakup tiga kategori valid. Tidak ditemukan
+kategori tidak terduga (\textit{rogue values}).
+
+\begin{table}[H]
+  \centering
+  \caption{Distribusi Tipe Fasilitas pada \texttt{dim\_fasilitas}}
+  \label{tab:dq_category}
+  \small
+  \begin{tabularx}{\linewidth}{cp{3cm}Xc}
+    \toprule
+    \textbf{No} & \textbf{Tipe Fasilitas} & \textbf{Keterangan} & \textbf{Status Validasi} \\
+    \midrule
+    1 & Rawat Jalan & Pelayanan tanpa rawat inap      & \textcolor{green!60!black}{\textbf{Valid}} \\
+    2 & Rawat Inap  & Pelayanan dengan perawatan inap & \textcolor{green!60!black}{\textbf{Valid}} \\
+    3 & IGD         & Instalasi Gawat Darurat         & \textcolor{green!60!black}{\textbf{Valid}} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ========================
+\subsubsection{Pemeriksaan Volume --- Jumlah Baris}
+
+Kueri berikut memverifikasi bahwa jumlah baris pada \texttt{fct\_kunjungan}
+sesuai dengan volume data yang direncanakan sejak tahap perancangan.
+
+\begin{lstlisting}[language=SQL, caption={Verifikasi jumlah baris fct\_kunjungan terhadap target volume}]
+SELECT
+    COUNT(*)    AS total_rows_actual,
+    12000       AS total_rows_expected,
+    COUNT(*) - 12000
+                AS selisih,
+    CASE
+        WHEN COUNT(*) = 12000 THEN 'PASS'
+        ELSE 'FAIL'
+    END         AS status_volume
+FROM airflow.public.fact_kunjungan;
+\end{lstlisting}
+
+\begin{center}
+  \includegraphics[width=0.75\textwidth]{figures/8-7_data_chk_04.png}
+  \captionof{figure}{Hasil kueri verifikasi volume baris \texttt{fct\_kunjungan}}
+  \label{fig:dq_volume_check}
+\end{center}
+
+Hasil pada Gambar~\ref{fig:dq_volume_check} mengonfirmasi
+\texttt{total\_rows\_actual = 12.000} dengan \texttt{selisih = 0},
+sesuai volume data yang direncanakan.
+
+\begin{table}[H]
+  \centering
+  \caption{Hasil Verifikasi Volume Baris \texttt{fct\_kunjungan}}
+  \label{tab:dq_volume}
+  \small
+  \begin{tabularx}{\linewidth}{cp{3.5cm}Xc}
+    \toprule
+    \textbf{No} & \textbf{Metrik} & \textbf{Keterangan} & \textbf{Nilai} \\
+    \midrule
+    1 & \texttt{total\_rows\_actual}   & Jumlah baris hasil pemuatan aktual    & 12.000 \\
+    2 & \texttt{total\_rows\_expected} & Jumlah baris target yang direncanakan & 12.000 \\
+    \midrule
+    3 & \texttt{selisih}               & Deviasi antara aktual dan target      & 0 \\
+    4 & \texttt{status\_volume}        & Hasil evaluasi pemeriksaan volume     & \textcolor{green!60!black}{\textbf{PASS}} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% -------------------------------------------------------
+\subsection{Ringkasan Hasil Pemeriksaan}
+
+Seluruh pemeriksaan kualitas data menunjukkan hasil yang memenuhi kriteria
+kelulusan yang telah ditetapkan. Rekapitulasi disajikan pada
+Tabel~\ref{tab:dq_summary}.
+
+\begin{table}[H]
+  \centering
+  \caption{Rekapitulasi Hasil Pemeriksaan Kualitas Data}
+  \label{tab:dq_summary}
+  \small
+  \begin{tabularx}{\linewidth}{cp{3cm}Xc}
+    \toprule
+    \textbf{No} & \textbf{Dimensi} & \textbf{Temuan} & \textbf{Status} \\
+    \midrule
+    1 & Kelengkapan \newline (\textit{Null Check})
+      & 0 nilai \texttt{NULL} pada seluruh kolom kunci dan \textit{measures}
+      & \textcolor{green!60!black}{\textbf{PASS}} \\
+    \midrule
+    2 & Kevalidan \newline (\textit{Range Check})
+      & 0 nilai \texttt{total\_biaya} bernilai negatif
+      & \textcolor{green!60!black}{\textbf{PASS}} \\
+    \midrule
+    3 & Konsistensi \newline (\textit{Category Check})
+      & 3 kategori valid: IGD, Rawat Jalan, Rawat Inap
+      & \textcolor{green!60!black}{\textbf{PASS}} \\
+    \midrule
+    4 & Volume \newline (\textit{Row Count Check})
+      & 12.000 baris sesuai rencana pemuatan, selisih = 0
+      & \textcolor{green!60!black}{\textbf{PASS}} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Hasil pemeriksaan di atas mengonfirmasi bahwa Data Mart yang dibangun memiliki
+kualitas data yang andal dan siap digunakan sebagai dasar analitik dan pelaporan.
