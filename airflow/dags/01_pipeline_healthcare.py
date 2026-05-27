@@ -143,12 +143,12 @@ with DAG(
         bash_command='cd /opt/airflow/dbt_project && dbt test --target docker_env --profiles-dir .',
     )
 
-    # BARU ⭐ Task 6: dbt Docs Generate
+    # Task 6: dbt Docs Generate
     task_dbt_docs = BashOperator(
         task_id='dbt_generate_docs',
         bash_command='cd /opt/airflow/dbt_project && dbt docs generate --target docker_env --profiles-dir .',
     )
-# Task Docs Serve (Menjalankan server di background agar task Airflow bisa langsung berstatus 'Success')
+    # Task 7: Docs Serve (Menjalankan server di background agar task Airflow bisa langsung berstatus 'Success')
     task_dbt_docs_serve = BashOperator(
         task_id='dbt_serve_docs',
         bash_command='''
