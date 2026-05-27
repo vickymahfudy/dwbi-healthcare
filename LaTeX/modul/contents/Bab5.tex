@@ -1,3 +1,5 @@
+% !TEX root = ../Makalah.tex
+
 \chapter{Implementasi Orkestrasi Apache Airflow}
 
 % ============================================================
@@ -17,40 +19,90 @@ Konfigurasi parameter operasional dan manajemen risiko dari DAG ini dirancang me
     \item \textbf{Schedule Interval (None) \& Catchup (False):} \textit{Pipeline} dikonfigurasi untuk berjalan berdasarkan pemicu manual (\textit{Manual Trigger}). Penonaktifan \textit{catchup} mencegah Airflow melakukan eksekusi susulan (\textit{backfilling}) terhadap jadwal historis masa lalu.
 \end{itemize}
  
-\section{Topologi dan Penjelasan Task Dependencies}
- 
-\textit{Pipeline} dipecah menjadi 4 \textit{task} diskrit yang dikelola oleh dua operator utama: \texttt{BashOperator} (untuk mengeksekusi skrip eksternal di lingkungan OS) dan \texttt{PythonOperator} (untuk mengeksekusi fungsi di dalam memori Python). Keempat \textit{task} diikat menggunakan operator dependensi sekuensial linear (\texttt{>>}), membentuk urutan kronologis sebagai berikut:
- 
-\textbf{Task 1: \texttt{run\_data\_generator} (BashOperator)}
- 
-Airflow memicu lingkungan \textit{shell} Linux untuk menjalankan skrip pembuat data sintetik.
- 
+\section{Topologi dan Penjelasan \textit{Task Dependencies}}
+
+\textit{Pipeline} dipecah menjadi 6 \textit{task} diskrit yang dikelola oleh dua operator
+utama: \texttt{BashOperator} untuk mengeksekusi perintah di lingkungan \textit{shell} Linux,
+dan \texttt{PythonOperator} untuk mengeksekusi fungsi Python di dalam memori proses Airflow.
+Keenam \textit{task} diikat menggunakan operator dependensi sekuensial linear (\texttt{>>}),
+membentuk urutan kronologis sebagai berikut:
+
+\begin{lstlisting}[language=Python, caption=Definisi alur dependensi keseluruhan pipeline]
+task_generate_data >> task_ingest_data >> task_auto_generate_models \
+    >> task_dbt_run >> task_dbt_test >> task_dbt_docs >> task_dbt_docs_serve
+\end{lstlisting}
+
+% -------------------------------------------------------
+\subsection*{Task 1: \texttt{run\_data\_generator} (BashOperator)}
+
+Airflow memicu lingkungan \textit{shell} Linux untuk menjalankan skrip pembuat data sintetik
+secara langsung melalui interpreter Python yang tersedia di dalam kontainer Docker.
+
 \begin{lstlisting}[language=Python, caption=Definisi Task run\_data\_generator]
 task_generate_data = BashOperator(
     task_id='run_data_generator',
     bash_command='python /opt/airflow/data_generator/src/generator.py',
 )
 \end{lstlisting}
- 
-Airflow memastikan file \texttt{generator.py} selesai dieksekusi 100\% dan menghasilkan 3 file CSV di folder \textit{shared storage} sebelum mengizinkan aliran data berpindah ke tahap berikutnya.
- 
-\textbf{Task 2: \texttt{ingest\_csv\_to\_database} (PythonOperator)}
- 
-Airflow memanggil fungsi Python internal untuk memindahkan data dari file \texttt{.csv} ke tabel relasional database.
- 
+
+Airflow memastikan skrip \texttt{generator.py} selesai dieksekusi sepenuhnya dan menghasilkan
+tiga file CSV (\texttt{source\_pasien.csv}, \texttt{source\_dokter.csv},
+\texttt{source\_kunjungan.csv}) di direktori \textit{shared storage}
+\texttt{/opt/airflow/data\_generator/output} sebelum mengizinkan aliran data berpindah ke
+\textit{task} berikutnya.
+
+% -------------------------------------------------------
+\subsection*{Task 2: \texttt{ingest\_csv\_to\_database} (PythonOperator)}
+
+Airflow memanggil fungsi Python \texttt{ingest\_csv\_to\_postgres} secara langsung di dalam
+memori proses \textit{worker} untuk memindahkan data dari file \texttt{.csv} ke tabel
+relasional PostgreSQL.
+
 \begin{lstlisting}[language=Python, caption=Definisi Task ingest\_csv\_to\_database]
 task_ingest_data = PythonOperator(
     task_id='ingest_csv_to_database',
     python_callable=ingest_csv_to_postgres,
 )
 \end{lstlisting}
- 
-Fungsi \texttt{ingest\_csv\_to\_postgres} menggunakan \textit{connection string} PostgreSQL \texttt{postgresql+psycopg2:\\//airflow:airflow@postgres:5432/airflow} untuk membaca CSV via \textit{Dataframe} Pandas dan menuliskannya ke tabel \texttt{src\_pasien}, \texttt{src\_dokter}, dan \texttt{src\_kunjungan} dengan metode \textit{overwrite} (\texttt{if\_exists='replace'}).
- 
-\textbf{Task 3: \texttt{dbt\_run\_transformation} (BashOperator)}
- 
-Airflow memerintahkan \texttt{dbt} sebagai \textit{third-party tool} untuk memproses transformasi.
- 
+
+Fungsi ini menggunakan \textit{connection string}
+\texttt{postgresql+psycopg2://airflow:airflow@postgres:5432/airflow} untuk terhubung ke
+PostgreSQL via SQLAlchemy. Data dibaca melalui \textit{DataFrame} Pandas, kemudian ditulis ke
+tabel \texttt{src\_pasien}, \texttt{src\_dokter}, dan \texttt{src\_kunjungan} dengan strategi
+pemuatan \textit{idempotent}: jika tabel sudah ada, isinya dikosongkan terlebih dahulu
+(\texttt{TRUNCATE}) sebelum data baru dimasukkan (\texttt{if\_exists='append'}); jika tabel
+belum ada, tabel dibuat otomatis (\texttt{if\_exists='fail'} pada eksekusi pertama). Seluruh
+operasi ini dibungkus dalam satu blok transaksi \texttt{engine.begin()} untuk menjamin
+konsistensi data.
+
+% -------------------------------------------------------
+\subsection*{Task 3: \texttt{auto\_generate\_dbt\_files} (PythonOperator)}
+
+Airflow memanggil fungsi \texttt{auto\_generate\_dbt\_models} untuk mengunduh konfigurasi
+model dbt secara dinamis dari repositori GitHub dan membuat seluruh file SQL model secara
+otomatis di dalam volume Docker.
+
+\begin{lstlisting}[language=Python, caption=Definisi Task auto\_generate\_dbt\_files]
+task_auto_generate_models = PythonOperator(
+    task_id='auto_generate_dbt_files',
+    python_callable=auto_generate_dbt_models,
+)
+\end{lstlisting}
+
+Fungsi ini mengunduh file \textit{manifest} YAML dari \textit{raw URL} repositori GitHub
+(\texttt{dbt\_manifest.yml}), kemudian mengiterasi setiap entri untuk membuat file
+\texttt{.sql} model dbt di direktori \texttt{/opt/airflow/dbt\_project/models/} dengan
+sub-folder \texttt{staging}, \texttt{dimensions}, dan \texttt{marts}. Secara bersamaan,
+fungsi mendeteksi nama tabel sumber melalui ekspresi reguler pada pemanggilan
+\texttt{source()}, lalu secara otomatis menghasilkan file \texttt{sources.yml} agar dbt
+dapat mengenali skema PostgreSQL tanpa konfigurasi manual.
+
+% -------------------------------------------------------
+\subsection*{Task 4: \texttt{dbt\_run\_transformation} (BashOperator)}
+
+Airflow memerintahkan dbt sebagai \textit{third-party transformation tool} untuk memproses
+seluruh model SQL dan membangun struktur \textit{Star Schema} secara nyata di dalam database.
+
 \begin{lstlisting}[language=Python, caption=Definisi Task dbt\_run\_transformation]
 task_dbt_run = BashOperator(
     task_id='dbt_run_transformation',
@@ -60,13 +112,18 @@ task_dbt_run = BashOperator(
     ),
 )
 \end{lstlisting}
- 
-Airflow mengirimkan sinyal perintah CLI \texttt{dbt run} untuk memproses pembentukan \textit{Star Schema} (Tabel Fakta dan Dimensi) di dalam database.
- 
-\textbf{Task 4: \texttt{dbt\_data\_quality\_test} (BashOperator)}
- 
-Airflow mengeksekusi proses pengujian kualitas data sebelum laporan siap dikonsumsi.
- 
+
+Airflow mengirimkan perintah CLI \texttt{dbt run} yang menginstruksikan dbt untuk
+mengompilasi dan mengeksekusi seluruh model SQL mulai dari lapisan \textit{staging},
+\textit{dimensions}, hingga \textit{marts}, sehingga menghasilkan tabel fakta dan dimensi
+(\textit{Star Schema}) yang persisten di dalam PostgreSQL.
+
+% -------------------------------------------------------
+\subsection*{Task 5: \texttt{dbt\_data\_quality\_test} (BashOperator)}
+
+Airflow mengeksekusi rangkaian pengujian kualitas data yang telah didefinisikan dalam skema
+YAML dbt sebelum hasil transformasi dinyatakan siap dikonsumsi oleh lapisan analitik.
+
 \begin{lstlisting}[language=Python, caption=Definisi Task dbt\_data\_quality\_test]
 task_dbt_test = BashOperator(
     task_id='dbt_data_quality_test',
@@ -76,9 +133,58 @@ task_dbt_test = BashOperator(
     ),
 )
 \end{lstlisting}
- 
-Jika pengujian integritas (seperti deteksi \textit{null value} atau duplikasi kunci utama) menemukan kegagalan, Airflow akan menandai \textit{task} ini berwarna merah (\textit{Failed}) dan menghentikan seluruh \textit{pipeline}.
- 
+
+Perintah \texttt{dbt test} mengeksekusi seluruh pengujian integritas yang telah
+dikonfigurasi, mencakup pemeriksaan \texttt{unique}, \texttt{not\_null},
+\texttt{accepted\_values}, dan \texttt{relationships} antar tabel. Apabila salah satu
+pengujian menghasilkan kegagalan, Airflow akan menandai \textit{task} ini dengan status
+\textit{Failed} (ditampilkan dalam warna merah pada UI) dan menghentikan seluruh
+\textit{pipeline} secara otomatis, sehingga data yang tidak valid tidak sampai ke lapisan
+pelaporan.
+
+% -------------------------------------------------------
+\subsection*{Task 6: \texttt{dbt\_generate\_docs} (BashOperator)}
+
+Airflow mengeksekusi proses pembangkitan dokumentasi dbt secara otomatis setelah seluruh
+pengujian kualitas data dinyatakan lulus.
+
+\begin{lstlisting}[language=Python, caption=Definisi Task dbt\_generate\_docs]
+task_dbt_docs = BashOperator(
+    task_id='dbt_generate_docs',
+    bash_command=(
+        'cd /opt/airflow/dbt_project && '
+        'dbt docs generate --target docker_env --profiles-dir .'
+    ),
+)
+\end{lstlisting}
+
+Perintah \texttt{dbt docs generate} mengompilasi seluruh metadata model, kolom, deskripsi,
+dan hasil pengujian menjadi artefak statis berupa file \texttt{manifest.json} dan
+\texttt{catalog.json} yang menjadi fondasi portal dokumentasi interaktif dbt.
+
+% -------------------------------------------------------
+\subsection*{Task 7: \texttt{dbt\_serve\_docs} (BashOperator)}
+
+Airflow menjalankan server dokumentasi dbt di \textit{background} agar \textit{task} dapat
+langsung berstatus \textit{Success} tanpa memblokir proses Airflow.
+
+\begin{lstlisting}[language=Python, caption=Definisi Task dbt\_serve\_docs]
+task_dbt_docs_serve = BashOperator(
+    task_id='dbt_serve_docs',
+    bash_command='''
+        fuser -k 8081/tcp || true
+        cd /opt/airflow/dbt_project && \
+        nohup dbt docs serve --port 8081 \
+            > /opt/airflow/logs/dbt_docs.log 2>&1 &
+    ''',
+)
+\end{lstlisting}
+
+\textit{Task} ini terlebih dahulu memeriksa apakah \textit{port} 8081 sudah aktif; jika ya,
+proses lama dimatikan via \texttt{fuser -k} sebelum server baru dijalankan. Server dbt
+kemudian dijalankan menggunakan \texttt{nohup ... \&} agar berjalan sebagai proses
+\textit{daemon} yang tidak bergantung pada siklus hidup proses Airflow. Portal dokumentasi
+dapat diakses melalui \texttt{http://localhost:8081} setelah \textit{task} ini berhasil.
 \section{Panduan Dokumentasi Antarmuka Airflow UI}
  
 Untuk membuktikan bahwa arsitektur orkestrasi ini berjalan dengan sukses di lingkungan Docker, lampirkan beberapa tangkapan layar dari Apache Airflow Web UI (akses via \texttt{localhost:8080}) dengan penjelasan sebagai berikut:
